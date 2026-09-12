@@ -125,9 +125,15 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cases", type=int, default=100)
     parser.add_argument("--start-seed", type=int, default=1000)
+    parser.add_argument(
+        "--suite",
+        choices=("broad", "verify-delay"),
+        default="broad",
+        help="broad=结构筛选；verify-delay=验证任务延后权重细扫",
+    )
     args = parser.parse_args()
 
-    configs = {
+    broad_configs = {
         "baseline": (StrategyConfig(), DogStrategy),
         "lean_scan": (StrategyConfig(), LeanScanStrategy),
         "defer_clear": (StrategyConfig(), DeferredClearStrategy),
@@ -163,6 +169,17 @@ def main() -> int:
             DogStrategy,
         ),
     }
+    delay_configs = {
+        "baseline": (StrategyConfig(), DogStrategy),
+        **{
+            f"verify_delay_{delay}": (
+                replace(StrategyConfig(), task_bias_verify_m=-float(delay)),
+                DogStrategy,
+            )
+            for delay in (100, 200, 300, 400, 500, 700)
+        },
+    }
+    configs = broad_configs if args.suite == "broad" else delay_configs
     seeds = range(args.start_seed, args.start_seed + args.cases)
     summaries: dict[str, dict[str, float]] = {}
     # All variants below share the same already-validated 27-point layout. Running

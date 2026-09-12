@@ -102,6 +102,7 @@ class StrategyConfig:
     opportunistic_radius_m: float = 600.0  # 顺捎检测的作用半径
     opportunistic_max_per_stop: int = 3    # 单次停留最多顺捎几个频道
     opportunistic_min_diameter_m: float = 40.0  # 区域已足够小就不必顺捎
+    opportunistic_gain_threshold_m: float = 30.0  # 顺路补测的收益阈值（可行域缩小量，米）；低于此不做，避免低价值检测
 
     # ---- 运行 ----
     base_url: str = "http://127.0.0.1:2026"

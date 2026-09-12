@@ -19,6 +19,9 @@ from . import geometry
 Point = Tuple[float, float]
 Polygon = List[Point]
 
+# 热循环内建引用提升（与 geometry.py 6.4 同源加固）。
+_FLOAT = float
+
 
 @dataclass
 class ChannelTrack:
@@ -30,7 +33,7 @@ class ChannelTrack:
 
     # ---- 观测登记 ----
     def add_direction(self, point: Point, bearing_deg: float) -> None:
-        self.observations.append((point, float(bearing_deg) % 360.0))
+        self.observations.append((point, _FLOAT(bearing_deg) % 360.0))
 
     def add_no_signal(self, point: Point) -> None:
         self.no_signal_points.append(point)
@@ -60,14 +63,17 @@ class ChannelTrack:
         """
         poly = self.polygon(cfg)
         if not poly:
-            return {"diameter_m": float("inf"), "centroid": None,
-                    "centroid_max_error_m": float("inf"), "vertices": 0}
+            return {"diameter_m": _FLOAT("inf"), "centroid": None,
+                    "centroid_max_error_m": _FLOAT("inf"), "vertices": 0}
         dia, _ = geometry.diameter(poly)
         c = geometry.centroid(poly)
+        mec_c, mec_r = geometry.minimum_enclosing_circle(poly)
         return {
             "diameter_m": dia,
             "centroid": c,
             "centroid_max_error_m": geometry.max_distance_from(c, poly),
+            "mec_center": mec_c,
+            "mec_radius_m": mec_r,
             "area_m2": geometry.polygon_area(poly),
             "vertices": len(poly),
         }
@@ -96,7 +102,7 @@ class TrackBook:
         track = self.tracks[channel]
         kind = payload.get("measure_result")
         if kind == "direction":
-            track.add_direction(point, float(payload["svd_deg"]))
+            track.add_direction(point, _FLOAT(payload["svd_deg"]))
         elif kind == "near":
             track.add_near(point)
         else:

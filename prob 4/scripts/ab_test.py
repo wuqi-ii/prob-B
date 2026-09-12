@@ -468,7 +468,7 @@ def main() -> int:
             "c0": (base_cfg, DogStrategy),
             **{
                 f"c{int(v)}": (replace(base_cfg, task_bias_clear_m=float(v)), DogStrategy)
-                for v in (-300, -150, 150, 300, 500)
+                for v in (-300, -200, -150, -100, -50, 150, 300, 500)
             },
         },
         "approach": {

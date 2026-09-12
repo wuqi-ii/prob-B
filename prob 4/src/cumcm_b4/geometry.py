@@ -32,6 +32,9 @@ _COS = math.cos
 _RADIANS = math.radians
 _HYPOT = math.hypot
 _PI = math.pi
+# 热循环中对内建 float 的引用同样提升为模块级常量，规避与 6.4 同源的
+# 「名字在热循环中被篡改成 float」型 'float' object is not callable 崩溃。
+_FLOAT = float
 
 
 # --------------------------------------------------------------------------
@@ -42,7 +45,7 @@ def clean_polygon(vertices: Sequence[Point], tol: float = DIST_TOL) -> Polygon:
     """去掉相邻重复点，保持顶点顺序。"""
     out: Polygon = []
     for p in vertices:
-        p = (float(p[0]), float(p[1]))
+        p = (_FLOAT(p[0]), _FLOAT(p[1]))
         if not out or _DIST(p, out[-1]) > tol:
             out.append(p)
     if len(out) > 1 and _DIST(out[0], out[-1]) <= tol:
@@ -67,7 +70,7 @@ def convex_hull(points: Sequence[Point], tol: float = 1e-9) -> Polygon:
 
     旋转卡壳要求输入是**有序**的凸多边形；散点必须先过这里。
     """
-    ordered = sorted(set((float(p[0]), float(p[1])) for p in points))
+    ordered = sorted(set((_FLOAT(p[0]), _FLOAT(p[1])) for p in points))
     ps: Polygon = []
     for p in ordered:
         if not ps or _DIST(p, ps[-1]) > tol:
@@ -122,7 +125,7 @@ def clip_halfplane(
                     (a[0] + ratio * (b[0] - a[0]), a[1] + ratio * (b[1] - a[1]))
                 )
         if in_b:
-            result.append((float(b[0]), float(b[1])))
+            result.append((_FLOAT(b[0]), _FLOAT(b[1])))
         a, da = b, db
     return clean_polygon(result)
 
@@ -279,8 +282,109 @@ def diameter(poly: Sequence[Point]) -> Tuple[float, Tuple[Point, Point]]:
 def max_distance_from(point: Point, poly: Sequence[Point]) -> float:
     """点到多边形各顶点的最大距离——这是「距真源最坏情况」的安全上界。"""
     if not poly:
-        return float("inf")
+        return _FLOAT("inf")
     return max(_DIST(point, p) for p in poly)
+
+
+def minimum_enclosing_circle(points: Sequence[Point]) -> Tuple[Point, float]:
+    """最小覆盖圆（Welzl 算法），返回 (圆心, 半径)。
+
+    凸多边形的极值点都在顶点上，因此对顶点集求最小覆盖圆即对整个可行域求解。
+    该圆心是「到集合内所有点的最大距离」最小的点（minimax 最优），比质心
+    （期望平方误差最优）更适合作为「确保一次清除命中」的站位：它把最坏情况
+    距离压到最小，且半径 <= 质心到最远顶点的距离，等号只在对称形状成立。
+    """
+    pts = clean_polygon(points)
+    if not pts:
+        raise ValueError("空点集没有最小覆盖圆")
+
+    def trivial(r: List[Point]) -> Tuple[Point, float]:
+        if not r:
+            return (0.0, 0.0), 0.0
+        if len(r) == 1:
+            return r[0], 0.0
+        if len(r) == 2:
+            a, b = r
+            cx = (a[0] + b[0]) / 2.0
+            cy = (a[1] + b[1]) / 2.0
+            return (cx, cy), _DIST(a, b) / 2.0
+        return _mec_from_3(r[0], r[1], r[2])
+
+    def welzl(p: List[Point], r: List[Point]) -> Tuple[Point, float]:
+        if not p or len(r) == 3:
+            return trivial(r)
+        q = p[-1]
+        c, rad = welzl(p[:-1], r)
+        if _DIST(q, c) <= rad + DIST_TOL:
+            return c, rad
+        return welzl(p[:-1], r + [q])
+
+    return welzl(list(pts), [])
+
+
+def _mec_from_3(a: Point, b: Point, c: Point) -> Tuple[Point, float]:
+    """三点最小覆盖圆：钝角/直角取最长边为直径，锐角取外接圆。"""
+    ab2 = (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2
+    bc2 = (b[0] - c[0]) ** 2 + (b[1] - c[1]) ** 2
+    ca2 = (c[0] - a[0]) ** 2 + (c[1] - a[1]) ** 2
+    sides = sorted([(ab2, a, b), (bc2, b, c), (ca2, c, a)], key=lambda t: -t[0])
+    longest, p1, p2 = sides[0]
+    # 钝角或直角：外接圆圆心会跑到三角形外，最小覆盖圆应取最长边为直径
+    if longest >= sides[1][0] + sides[2][0] - 1e-12:
+        cx = (p1[0] + p2[0]) / 2.0
+        cy = (p1[1] + p2[1]) / 2.0
+        return (cx, cy), _SQRT(longest) / 2.0
+    ax, ay = a
+    bx, by = b
+    cx_, cy_ = c
+    d = 2.0 * (ax * (by - cy_) + bx * (cy_ - ay) + cx_ * (ay - by))
+    if abs(d) < 1e-12:
+        # 三点共线退化
+        return ((p1[0] + p2[0]) / 2.0, (p1[1] + p2[1]) / 2.0), _SQRT(longest) / 2.0
+    ux = ((ax * ax + ay * ay) * (by - cy_)
+          + (bx * bx + by * by) * (cy_ - ay)
+          + (cx_ * cx_ + cy_ * cy_) * (ay - by)) / d
+    uy = ((ax * ax + ay * ay) * (cx_ - bx)
+          + (bx * bx + by * by) * (ax - cx_)
+          + (cx_ * cx_ + cy_ * cy_) * (bx - ax)) / d
+    return (ux, uy), _DIST((ux, uy), a)
+
+
+def _cross(o: Point, a: Point, b: Point) -> float:
+    """(a-o) × (b-o)。CCW 多边形下结果 >= 0 表示 b 在 o->a 的左侧（内侧）。"""
+    return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+
+def point_to_polygon_distance(point: Point, poly: Sequence[Point]) -> float:
+    """点到凸多边形集合的最短距离；点在多边形内时返回0。
+
+    这里同时检查边的内部投影，不能用“到最近顶点的距离”代替。
+    """
+    vertices = ensure_ccw(poly)
+    if not vertices:
+        return _FLOAT("inf")
+    if len(vertices) == 1:
+        return _DIST(point, vertices[0])
+
+    def segment_distance(a: Point, b: Point) -> float:
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        denom = dx * dx + dy * dy
+        if denom <= 1e-18:
+            return _DIST(point, a)
+        t = ((point[0] - a[0]) * dx + (point[1] - a[1]) * dy) / denom
+        t = max(0.0, min(1.0, t))
+        q = (a[0] + t * dx, a[1] + t * dy)
+        return _DIST(point, q)
+
+    if len(vertices) >= 3 and all(
+        _cross(vertices[i], vertices[(i + 1) % len(vertices)], point) >= -DIST_TOL
+        for i in range(len(vertices))
+    ):
+        return 0.0
+    return min(
+        segment_distance(vertices[i], vertices[(i + 1) % len(vertices)])
+        for i in range(len(vertices))
+    )
 
 
 def polygon_area(poly: Sequence[Point]) -> float:
@@ -292,7 +396,7 @@ def point_along(start: Point, target: Point, distance: float) -> Point:
     dx, dy = target[0] - start[0], target[1] - start[1]
     length = _HYPOT(dx, dy)
     if length <= 1e-12 or distance <= 0:
-        return (float(start[0]), float(start[1]))
+        return (_FLOAT(start[0]), _FLOAT(start[1]))
     ratio = min(1.0, distance / length)
     return (start[0] + dx * ratio, start[1] + dy * ratio)
 

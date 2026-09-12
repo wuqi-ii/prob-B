@@ -37,9 +37,11 @@ class RelocatedStrategy(RefinedStrategy):
         def score(p):
             return self._route_score(cur,route_for(p))
         candidates=[cur]
-        destinations=sorted([t.execution_point for t in services],key=lambda p:math.dist(task.point,p))[:4]
+        destinations=sorted([t.execution_point for t in services],
+                            key=lambda p:math.dist(task.point,p))[:4]
+        fractions=(.125,.25,.5,.75,1.)
         for dest in [cur,*destinations]:
-            for f in (.125,.25,.5,.75,1.):
+            for f in fractions:
                 candidates.append(tuple(a+f*(b-a) for a,b in zip(task.point,dest)))
         best,best_score=task.point,score(task.point)
         for point in sorted(candidates,key=score):

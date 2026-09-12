@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from dataclasses import replace
@@ -40,10 +41,27 @@ from cumcm_b3.experimental_strategy import make_strategy as DogStrategy  # noqa:
 
 # 模拟器把每局演练的真值写在自己的数据目录里（正式测试不写这个文件）。
 # 有了它就能自动算出诚实的清除比例，不必人工去界面读数——也才可能发现"漏检"。
-DEFAULT_SIM_DATA_DIR = (
+# 模拟器目录被移动过一次（math\CUMCM2026B -> CUMCM2026B），写死单个路径会让真值
+# 静默读不到、清除比例变成未知。这里按候选顺序挑一个真实存在的，并在都不存在时
+# 打印明确提示，而不是默默放弃。
+SIM_DATA_DIR_CANDIDATES = (
+    r"C:\Users\ASUS\Desktop\CUMCM2026B\Jammers-simulator-win64"
+    r"\Jammers-simulator\JammersSimulatorData\behavior-logs",
     r"C:\Users\ASUS\Desktop\math\CUMCM2026B\Jammers-simulator-win64"
-    r"\Jammers-simulator\JammersSimulatorData\behavior-logs"
+    r"\Jammers-simulator\JammersSimulatorData\behavior-logs",
 )
+
+
+def default_sim_data_dir() -> str:
+    for path in SIM_DATA_DIR_CANDIDATES:
+        if os.path.isdir(path):
+            return path
+    print("警告：未找到模拟器 behavior-logs 目录，本局将无法自动读取干扰源真值。"
+          f"可用 --sim-data-dir 指定。已尝试：{SIM_DATA_DIR_CANDIDATES}")
+    return SIM_DATA_DIR_CANDIDATES[0]
+
+
+DEFAULT_SIM_DATA_DIR = default_sim_data_dir()
 
 
 def read_practice_truth(data_dir: str, not_before_epoch: float, timeout_s: float = 15.0):

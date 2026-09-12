@@ -39,6 +39,9 @@ from .config import (
     VIRTUAL_TIME_LIMIT_S,
 )
 
+# 热循环内建引用提升（与 geometry.py 6.4 同源加固）。
+_FLOAT = float
+
 
 @dataclass
 class Source:
@@ -188,7 +191,7 @@ class OfflineSimulator(DogBackend):
         distance = math.hypot(x - self._x, y - self._y)
         cost = distance / DOG_SPEED_MPS
         self._virtual_time += cost
-        self._x, self._y = float(x), float(y)
+        self._x, self._y = _FLOAT(x), _FLOAT(y)
         return cost
 
     def _record(self, kind: str, payload: Dict[str, Any]) -> None:

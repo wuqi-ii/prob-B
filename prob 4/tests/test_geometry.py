@@ -165,6 +165,70 @@ class TestMetrics(unittest.TestCase):
         p = geometry.point_along((0.0, 0.0), (10.0, 0.0), 100.0)
         self.assertEqual(p, (10.0, 0.0))
 
+    def test_point_to_polygon_distance_uses_edges_and_inside(self):
+        square = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)]
+        self.assertEqual(geometry.point_to_polygon_distance((0.0, 0.0), square), 0.0)
+        self.assertAlmostEqual(
+            geometry.point_to_polygon_distance((3.0, 0.0), square), 2.0
+        )
+
+
+class TestMinimumEnclosingCircle(unittest.TestCase):
+    def test_two_points_diameter(self):
+        c, r = geometry.minimum_enclosing_circle([(0.0, 0.0), (4.0, 0.0)])
+        self.assertAlmostEqual(c[0], 2.0, places=6)
+        self.assertAlmostEqual(c[1], 0.0, places=6)
+        self.assertAlmostEqual(r, 2.0, places=6)
+
+    def test_acute_triangle_circumcircle(self):
+        tri = [(0.0, 0.0), (6.0, 0.0), (0.0, 6.0)]  # 直角，最长边为直径
+        c, r = geometry.minimum_enclosing_circle(tri)
+        self.assertAlmostEqual(c[0], 3.0, places=6)
+        self.assertAlmostEqual(c[1], 3.0, places=6)
+        self.assertAlmostEqual(r, math.hypot(3.0, 3.0), places=6)
+
+    def test_obtuse_triangle_longest_edge_diameter(self):
+        # 钝角三角形：最小覆盖圆 = 最长边为直径
+        tri = [(0.0, 0.0), (10.0, 0.0), (1.0, 0.5)]
+        c, r = geometry.minimum_enclosing_circle(tri)
+        self.assertAlmostEqual(c[0], 5.0, places=6)
+        self.assertAlmostEqual(r, 5.0, places=6)
+
+    def test_square_equals_centroid(self):
+        sq = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)]
+        c, r = geometry.minimum_enclosing_circle(sq)
+        self.assertAlmostEqual(c[0], 0.0, places=6)
+        self.assertAlmostEqual(c[1], 0.0, places=6)
+        self.assertAlmostEqual(r, math.sqrt(2), places=6)
+
+    def test_eccentric_shape_mec_beats_centroid(self):
+        # 非对称（非中心对称）形状：质心偏向面积集中侧，MEC 半径 < 质心最坏距离
+        # 直角三角形 (0,0)-(10,0)-(0,1)：质心 (3.33,0.33)，最远顶点 (10,0) 距 6.68；
+        # 最小覆盖圆 = 斜边为直径，圆心 (5,0.5) 半径 ~5.025。
+        poly = [(0.0, 0.0), (10.0, 0.0), (0.0, 1.0)]
+        c_cent = geometry.centroid(poly)
+        worst_cent = geometry.max_distance_from(c_cent, poly)
+        c_mec, r_mec = geometry.minimum_enclosing_circle(poly)
+        self.assertLess(r_mec, worst_cent - 1.0)
+        # 覆盖性：圆心到所有顶点距离 <= 半径 + tol
+        for p in poly:
+            self.assertLessEqual(math.dist(p, c_mec), r_mec + 1e-6)
+
+    def test_random_pointset_minimax(self):
+        rng = random.Random(42)
+        for _ in range(200):
+            pts = [(rng.uniform(-100, 100), rng.uniform(-100, 100)) for _ in range(8)]
+            hull = geometry.convex_hull(pts)
+            if len(hull) < 2:
+                continue
+            c, r = geometry.minimum_enclosing_circle(hull)
+            # 覆盖性
+            for p in hull:
+                self.assertLessEqual(math.dist(p, c), r + 1e-6)
+            # minimax：半径 <= 质心最坏距离
+            c_cent = geometry.centroid(hull)
+            self.assertLessEqual(r, geometry.max_distance_from(c_cent, hull) + 1e-6)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

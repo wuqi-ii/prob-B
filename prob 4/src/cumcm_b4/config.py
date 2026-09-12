@@ -85,9 +85,26 @@ class StrategyConfig:
     approach_step_ratio: float = 0.85     # 每次逼近前进到剩余估计距离的比例
     approach_min_step_m: float = 25.0     # 最小逼近步长，防止原地抖动
     approach_max_step_m: float = 400.0    # 逼近步长上限，防止越过源（定向源楔外不可测）
+    # True 时后续逼近也沿「最近一次示向度」方向前进（与首次逼近一致），保证整段
+    # 逼近线都落在定向源 180° 覆盖楔内。实测（150 例配对）反更差 +2.18%：
+    # 沿 bearing 不自适应、误差累积，而朝 anchor 每步重算可行域中心收敛更快。
+    # 故默认 False，仅作历史记录。
+    approach_along_bearing: bool = False
     approach_max_iterations: int = 60     # 单个目标的逼近迭代上限
     clear_safety_margin_m: float = 2.0    # 判定「质心可直接清除」的余量
+    # True 时清除站位/判据改用可行域顶点的最小覆盖圆圆心与半径（minimax 最优），
+    # 替代质心 + 质心到最远顶点距离。700 例配对验证零漏检、−0.62%~−0.64% 显著收益，
+    # 故设为默认。对非中心对称的可行域把最坏距离压小约 10%，更早满足一次命中判据。
+    use_mec_clear: bool = True
     bisect_tolerance_m: float = 12.0      # 越过源后二分恢复的收敛阈值
+    # 越界时机器狗位于无信号端 hi。取 lo + f(hi-lo)，f>0.5 可减少首次回走距离；
+    # 始终保留 lo有信号/hi无信号 的括号，故不改变收敛与安全性。300个混合案例
+    # 配对验证 f=0.85 全清且平均省 107.8 s（-1.56%）。
+    bisect_fraction: float = 0.85
+    # True 时越过源（no_signal）后不做二分，直接以越界点为圆心环形兜底清除。
+    # 实测（150 例配对）省 −0.83% 但漏检 31/150（miss 8.61→17.63）：二分的
+    # "边测边找源"价值不可省。故默认 False，仅作历史记录。
+    skip_bisect_on_overshoot: bool = False
     # 二分的「有信号/无信号」括号长度收敛到该阈值即停，取中点清除。
     # 因真源必落在括号内、且 /clear 半径 20 m，阈值放大到 2*(20-横向误差) 仍安全，
     # 但放大能省下最后一次往返。默认 12.0 与历史行为一致。
@@ -98,14 +115,25 @@ class StrategyConfig:
     ring_clear_enabled: bool = True       # 是否启用环形兜底清除
 
     # ---- 清除后的闭环确认（"确保全部清除"的可验证性）----
-    post_clear_verify: bool = True        # 清除成功后是否就地复测确认无信号
+    # /clear 的 success 已是权威成功结果；成功后原地复测只会固定增加5~6秒/源，
+    # 不提供新的决策信息。100个混合案例关闭后仍全清，平均每局省72.2秒。
+    post_clear_verify: bool = False
     max_clear_attempts_per_channel: int = 5  # 单频道清除尝试上限
 
     # ---- 决策 ----
     opportunistic_scan: bool = True        # 是否启用顺路/顺频道捎带检测
     route_replan_every_step: bool = True   # 每完成一个任务点后是否重算路径
     scan_all_channels_at_scan_points: bool = True  # 在必访扫描点是否扫全部未确认频道
-    task_bias_clear_m: float = 0.0         # 清除任务的等效距离优惠（越大越优先）
+    # 仅跳过两类可严格证明无收益的检测：定位区域已小到可一次清除，或整个
+    # 定位区域距当前扫描点超过1500 m最大接收半径。关闭可复现优化前行为。
+    certified_scan_skip: bool = True
+    # 同一扫描点批量测量时优先复用后端当前频道，通常每站少一次1 s切换。
+    scan_current_channel_first: bool = True
+    # 已成功清除题面上限16个不同频道时，剩余频道必不存在，可安全跳过未访问扫描点。
+    # 不改变普通案例路线；100例中16源局5/12提前结束，总体平均-0.31%。
+    early_stop_at_max_sources: bool = True
+    # 轻微延后清除可减少扫描路线被远处目标打断；当前组合初筛以 -100 m 最优。
+    task_bias_clear_m: float = -100.0
     # 负值表示适度延后远距离验证任务，减少包围网遍历被来回打断。
     # 加入「终局重试」（扫描网走完后解冻冻结频道重试）之后，-500 ~ -2000 m 是平台区；
     # 配对 300 案例以 -700 m 最优（全清，相对 -300 再省约 5%），故设为默认。
@@ -163,6 +191,8 @@ class StrategyConfig:
             raise ValueError("clear_safety_margin_m 必须在 [0, 20)")
         if not 0 < self.first_approach_step_m <= RECEIVER_MAX_M:
             raise ValueError("first_approach_step_m 必须位于 (0, 1500]")
+        if not 0 < self.bisect_fraction < 1:
+            raise ValueError("bisect_fraction 必须位于 (0, 1)")
         if self.ring_clear_enabled and self.ring_clear_count < 1:
             raise ValueError("ring_clear_count 至少为 1")
 

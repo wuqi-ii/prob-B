@@ -36,6 +36,32 @@ def closest_safe_point(cur, poly, radius=18.):
     return min(feasible,key=lambda p:math.dist(cur,p)) if feasible else None
 
 
+def segment_safe_point(start, end, poly, radius=18.):
+    """Return a point where the start-end segment crosses the safe region."""
+    if not poly:
+        return None
+    dx,dy=end[0]-start[0],end[1]-start[1]
+    aa=dx*dx+dy*dy
+    if aa<=1e-16:
+        return start if all(math.dist(start,v)<=radius+1e-8 for v in poly) else None
+    lo,hi=0.,1.
+    for vx,vy in poly:
+        ox,oy=start[0]-vx,start[1]-vy
+        bb=2*(ox*dx+oy*dy)
+        cc=ox*ox+oy*oy-radius*radius
+        disc=bb*bb-4*aa*cc
+        if disc < -1e-8:
+            return None
+        root=math.sqrt(max(0.,disc))
+        left,right=(-bb-root)/(2*aa),(-bb+root)/(2*aa)
+        lo,hi=max(lo,left),min(hi,right)
+        if lo>hi+1e-10:
+            return None
+    t=min(1.,max(0.,lo))
+    p=(start[0]+t*dx,start[1]+t*dy)
+    return p if all(math.dist(p,v)<=radius+1e-7 for v in poly) else None
+
+
 class RefinedStrategy(ForwardStrategy):
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
@@ -62,14 +88,31 @@ class RefinedStrategy(ForwardStrategy):
         if self.cfg.safe_clear_point:
             for task in tasks:
                 if task.kind=='clear':
-                    p=self._safe_point(task.channel)
-                    if p is not None:
-                        task.point=p
+                    poly=self.book[task.channel].polygon(self.cfg)
+                    radius=20-self.cfg.clear_safety_margin_m
+                    destinations=[s.execution_point for s in scans]
+                    destinations.extend(t.execution_point for t in tasks if t is not task)
+                    candidates=[closest_safe_point(cur,poly,radius)]
+                    for dest in destinations:
+                        candidates.append(segment_safe_point(cur,dest,poly,radius))
+                        candidates.append(closest_safe_point(dest,poly,radius))
+                    candidates=[p for p in candidates if p is not None]
+                    if candidates:
+                        if destinations:
+                            task.point=min(candidates,key=lambda p:min(
+                                math.dist(cur,p)+math.dist(p,d)-math.dist(cur,d)
+                                for d in destinations))
+                        else:
+                            task.point=min(candidates,key=lambda p:math.dist(cur,p))
         return tasks
 
     def _approach_and_clear(self,ch):
         if self.cfg.safe_clear_point and not self.book[ch].near_points:
-            p=self._safe_point(ch)
+            p=getattr(self,'_active_safe_point',None)
+            poly=self.book[ch].polygon(self.cfg)
+            radius=20-self.cfg.clear_safety_margin_m
+            if p is None or not all(math.dist(p,v)<=radius+1e-7 for v in poly):
+                p=self._safe_point(ch)
             if p is not None:
                 self._log('safe_clear_point',channel=ch,at=list(p))
                 result=self.backend.clear(*p,ch)
@@ -99,4 +142,10 @@ class RefinedStrategy(ForwardStrategy):
                 self._log('step_replan',channel=ch,at=list(p),result=kind)
                 self._opportunistic_pass(p,exclude=ch)
                 return
+        if self.cfg.safe_clear_point and task.kind=='clear':
+            self._active_safe_point=task.point
+            try:
+                return super().execute(task)
+            finally:
+                self._active_safe_point=None
         return super().execute(task)

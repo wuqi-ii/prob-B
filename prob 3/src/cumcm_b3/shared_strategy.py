@@ -79,8 +79,8 @@ class SharedStrategy(ExperimentalStrategy):
         if not after_poly:
             return 0.0
         after = geometry.max_distance_from(geometry.centroid(after_poly), after_poly)
-        # Benefit proxy in metres; six seconds of sensing costs 30 m of travel.
-        return max(0.0, before-after-30.0)
+        # Benefit proxy in metres; six seconds of sensing costs ~30 m of travel.
+        return max(0.0, before-after-self.cfg.opportunistic_gain_threshold_m)
 
     def _reuse_actual_stop(self, point, exclude=None):
         # 只在机器狗已经真实到达的停靠点做硬保证复用。不能提前绑定

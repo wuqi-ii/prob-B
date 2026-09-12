@@ -40,6 +40,24 @@ class TestDirectionalLocate(unittest.TestCase):
                      directional=True, direction_deg=direction_deg)
         return WorldCases(sources=[src], seed=0)
 
+    def test_max_source_count_allows_safe_early_stop(self):
+        """已清除题面上限16个频道后，即使扫描点未走完也必须合法结束。"""
+        sim = OfflineSimulator(WorldCases(sources=[], seed=0))
+        strategy = DogStrategy(sim, StrategyConfig())
+        for ch in range(1, 17):
+            strategy.book[ch].cleared = True
+        self.assertIsNone(strategy.select_task())
+        self.assertTrue(strategy.status()["all_clear"])
+        self.assertTrue(strategy.status()["early_stop_at_max_sources"])
+
+        disabled = DogStrategy(
+            OfflineSimulator(WorldCases(sources=[], seed=0)),
+            StrategyConfig(early_stop_at_max_sources=False),
+        )
+        for ch in range(1, 17):
+            disabled.book[ch].cleared = True
+        self.assertIsNotNone(disabled.select_task())
+
     def test_wedge_edge_source_is_cleared(self):
         """楔形边缘的定向源（贴近扫描点、楔边界擦过）也必须被清除。"""
         # 源在 (711, 388)，方向 352°，几乎正对东；这是 seed=1045 曾失败的几何形态

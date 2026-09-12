@@ -40,7 +40,7 @@ from cumcm_b4.strategy import DogStrategy  # noqa: E402
 
 # 模拟器把每局演练的真值写在自己的数据目录里（正式测试不写这个文件）。
 DEFAULT_SIM_DATA_DIR = (
-    r"C:\Users\ASUS\Desktop\math\CUMCM2026B\Jammers-simulator-win64"
+    r"C:\Users\ASUS\Desktop\CUMCM2026B\Jammers-simulator-win64"
     r"\Jammers-simulator\JammersSimulatorData\behavior-logs"
 )
 

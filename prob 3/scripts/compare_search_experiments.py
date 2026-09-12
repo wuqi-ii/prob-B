@@ -70,6 +70,14 @@ OVERRIDES['lean_safe_step'] = {
 OVERRIDES['lean_timed'] = {**LEAN_ACTIONS, 'route_time_score':True}
 OVERRIDES['lean_timed_safe'] = {
     **LEAN_ACTIONS, 'route_time_score':True, 'safe_clear_point':True}
+LEAN_SAFE_STEP = {**LEAN_ACTIONS, 'safe_clear_point':True, 'step_replan':True}
+OVERRIDES['lean_safe_dynamic'] = {
+    **LEAN_SAFE_STEP, 'dynamic_second_station':True}
+OVERRIDES['lean_safe_dynamic_reuse'] = {
+    **LEAN_SAFE_STEP, 'dynamic_second_station':True, 'planned_stop_reuse':True}
+for _radius in (1125, 1175, 1200, 1250, 1300, 1400, 1500, 1560):
+    OVERRIDES[f'lean_safe_r{_radius}'] = {
+        **LEAN_SAFE_STEP, 'scan_ring_radius_m':float(_radius)}
 for _name,_changes in {
     'timed': dict(route_time_score=True),
     'step': dict(step_replan=True),

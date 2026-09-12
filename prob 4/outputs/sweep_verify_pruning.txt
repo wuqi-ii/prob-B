@@ -1,0 +1,35 @@
+Traceback (most recent call last):
+  File "C:\Users\ASUS\Desktop\math\prob 4\scripts\ab_test.py", line 783, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\Users\ASUS\Desktop\math\prob 4\scripts\ab_test.py", line 758, in main
+    results[name] = [run_case(s, cfg, cls, args.directional_prob) for s in seeds]
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ASUS\Desktop\math\prob 4\scripts\ab_test.py", line 758, in <listcomp>
+    results[name] = [run_case(s, cfg, cls, args.directional_prob) for s in seeds]
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ASUS\Desktop\math\prob 4\scripts\ab_test.py", line 414, in run_case
+    stats = cls(sim, cfg).run()
+            ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ASUS\Desktop\math\prob 4\src\cumcm_b4\strategy.py", line 113, in run
+    task = self.select_task()
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ASUS\Desktop\math\prob 4\src\cumcm_b4\strategy.py", line 179, in select_task
+    summary = track.geometry_summary(cfg)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ASUS\Desktop\math\prob 4\src\cumcm_b4\tracker.py", line 64, in geometry_summary
+    poly = self.polygon(cfg)
+           ^^^^^^^^^^^^^^^^^
+  File "C:\Users\ASUS\Desktop\math\prob 4\src\cumcm_b4\tracker.py", line 54, in polygon
+    return geometry.locate(
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\ASUS\Desktop\math\prob 4\src\cumcm_b4\geometry.py", line 351, in locate
+    poly = disk_outer_polygon(arena_radius)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ASUS\Desktop\math\prob 4\src\cumcm_b4\geometry.py", line 154, in disk_outer_polygon
+    poly = clip_halfplane(poly, nx, ny, radius)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ASUS\Desktop\math\prob 4\src\cumcm_b4\geometry.py", line 118, in clip_halfplane
+    db = nx * b[0] + ny * b[1] - rhs
+         ~~~^~~~~~
+TypeError: can't multiply sequence by non-int of type 'float'

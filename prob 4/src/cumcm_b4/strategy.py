@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from . import geometry
-from .config import CLEAR_RADIUS_M, StrategyConfig
+from .config import CLEAR_RADIUS_M, RECEIVER_MAX_M, SOURCE_COUNT_MAX, StrategyConfig
 from .coverage import scan_points
 from .second_station import approach_point
 from .tracker import TrackBook
@@ -135,6 +135,12 @@ class DogStrategy:
     def _no_task_stop_reason(self) -> str:
         return "all_done" if self.status()["all_clear"] else "unresolved_targets"
 
+    def _max_sources_cleared(self) -> bool:
+        return (
+            self.cfg.early_stop_at_max_sources
+            and self.book.count_cleared() >= SOURCE_COUNT_MAX
+        )
+
     def _budget_exhausted(self, info: Dict[str, Any]) -> bool:
         cfg = self.cfg
         guard = getattr(self.backend, "budget_exhausted", None)
@@ -151,6 +157,12 @@ class DogStrategy:
         cfg = self.cfg
         cur = self._pos()
         candidates: List[Task] = []
+
+        # 题面给出总源数最多16。清除16个不同频道后，不可能还有未知源，
+        # 因而无需为了形式上的23点访问完整性继续空扫。
+        if self._max_sources_cleared():
+            self._log("early_stop_max_sources", cleared=SOURCE_COUNT_MAX)
+            return None
 
         # (a) 必访扫描点
         for idx, p in enumerate(self.scan_points):
@@ -176,12 +188,11 @@ class DogStrategy:
                 p = approach_point(first_pt, first_bearing, cfg.first_approach_step_m)
                 candidates.append(Task("verify", p, ch, note="first-approach"))
                 continue
-            summary = track.geometry_summary(cfg)
-            centroid = summary["centroid"]
-            if centroid is not None:
+            anchor, worst = self._clear_anchor(ch)
+            if anchor is not None:
                 candidates.append(
-                    Task("clear", centroid, ch,
-                         note=f"u={summary['centroid_max_error_m']:.1f}")
+                    Task("clear", anchor, ch,
+                         note=f"u={worst:.1f}")
                 )
 
         if not candidates:
@@ -197,8 +208,8 @@ class DogStrategy:
                 if retryable:
                     def estimated_distance(ch: int) -> float:
                         track = self.book[ch]
-                        summary = track.geometry_summary(cfg)
-                        point = summary["centroid"]
+                        anchor, _ = self._clear_anchor(ch)
+                        point = anchor
                         if point is None and track.near_points:
                             point = track.near_points[-1]
                         return math.dist(cur, point) if point is not None else math.inf
@@ -245,7 +256,32 @@ class DogStrategy:
 
     def _visit_scan_point(self, idx: int) -> None:
         p = self.scan_points[idx]
-        channels = [ch for ch in range(1, 21) if not self.book[ch].cleared]
+        channels = []
+        skipped = []
+        for ch in range(1, 21):
+            track = self.book[ch]
+            if track.cleared:
+                continue
+            blocked = self._blocked_at_obs.get(ch)
+            needs_recovery = blocked is not None and len(track.observations) <= blocked
+            if self.cfg.certified_scan_skip and track.known and not needs_recovery:
+                summary = track.geometry_summary(self.cfg)
+                if summary["centroid_max_error_m"] <= (
+                    CLEAR_RADIUS_M - self.cfg.clear_safety_margin_m
+                ):
+                    skipped.append(ch)
+                    continue
+                poly = track.polygon(self.cfg)
+                if poly and geometry.point_to_polygon_distance(p, poly) > RECEIVER_MAX_M:
+                    skipped.append(ch)
+                    continue
+            channels.append(ch)
+
+        if self.cfg.scan_current_channel_first:
+            current = getattr(self.backend, "current_channel", None)
+            if current in channels:
+                channels.remove(current)
+                channels.insert(0, current)
         for ch in channels:
             payload = self.backend.measure(p[0], p[1], ch)
             kind = self.book.apply_measure(ch, p, payload)
@@ -253,6 +289,7 @@ class DogStrategy:
                 self._log("discover", channel=ch, at=list(p), kind=kind)
         self.visited_scan[idx] = True
         self._log("scan_done", point=list(p), index=idx, channels=len(channels),
+                  skipped_certified=skipped,
                   found=[ch for ch in channels if self.book[ch].known])
 
     # ---------------- 单次示向度的同向推进 ----------------
@@ -337,6 +374,19 @@ class DogStrategy:
         self.stats.clear_miss += 1
         return False
 
+    def _clear_anchor(self, ch: int) -> Tuple[Point, float]:
+        """清除站位与「最坏距离」判据。
+
+        默认用质心 + 质心到最远顶点的距离（期望平方误差最优）；
+        ``use_mec_clear=True`` 时改用可行域顶点的最小覆盖圆圆心 + 半径
+        （minimax 最优）。两者都保证真源在站位附近，但最小覆盖圆圆心把
+        最坏情况距离压到最小，对非中心对称的可行域更早满足「一次命中」判据。
+        """
+        summary = self.book[ch].geometry_summary(self.cfg)
+        if self.cfg.use_mec_clear and summary.get("mec_center") is not None:
+            return summary["mec_center"], summary["mec_radius_m"]
+        return summary["centroid"], summary["centroid_max_error_m"]
+
     def _ring_clear(self, center: Point, ch: int) -> bool:
         """光学环形兜底清除：中心 + 六点环形，共 7 次 /clear。
 
@@ -366,29 +416,32 @@ class DogStrategy:
             return self._try_clear(track.near_points[-1], ch)
 
         for _ in range(cfg.approach_max_iterations):
-            summary = track.geometry_summary(cfg)
-            centroid = summary["centroid"]
-            if centroid is None:
+            anchor, worst = self._clear_anchor(ch)
+            if anchor is None:
                 return False
-            worst = summary["centroid_max_error_m"]
 
             if worst <= CLEAR_RADIUS_M - cfg.clear_safety_margin_m:
-                if self._try_clear(centroid, ch):
+                if self._try_clear(anchor, ch):
                     return True
                 # 未命中：原地补一次观测修正，或进入环形兜底
-                payload = self.backend.measure(centroid[0], centroid[1], ch)
-                kind = self.book.apply_measure(ch, centroid, payload)
+                payload = self.backend.measure(anchor[0], anchor[1], ch)
+                kind = self.book.apply_measure(ch, anchor, payload)
                 if kind == "near":
-                    return self._try_clear(centroid, ch)
+                    return self._try_clear(anchor, ch)
                 if kind == "direction":
                     continue
-                return self._ring_clear(centroid, ch)
+                return self._ring_clear(anchor, ch)
 
             cur = self._pos()
-            d = math.dist(cur, centroid)
+            d = math.dist(cur, anchor)
             step = max(cfg.approach_min_step_m,
                        min(cfg.approach_step_ratio * d, cfg.approach_max_step_m))
-            target = geometry.point_along(cur, centroid, step)
+            if cfg.approach_along_bearing and track.observations:
+                # 沿最近一次示向度前进：整段线段都落在定向源 180° 楔内，
+                # 不会朝可行域中心走却穿出覆盖楔（避免 overshoot + 二分回收）。
+                target = approach_point(cur, track.observations[-1][1], step)
+            else:
+                target = geometry.point_along(cur, anchor, step)
             payload = self.backend.measure(target[0], target[1], ch)
             kind = self.book.apply_measure(ch, target, payload)
             self._log("approach", channel=ch,
@@ -400,9 +453,11 @@ class DogStrategy:
             if kind == "no_signal":
                 # 越过了源：在最后一个有信号点与当前位置之间二分搜索
                 lo = track.observations[-1][0] if track.observations else cur
+                if cfg.skip_bisect_on_overshoot:
+                    return self._ring_clear(target, ch)
                 if self._resolve_overshoot(ch, lo, target):
                     return True
-                return self._ring_clear(centroid, ch)
+                return self._ring_clear(anchor, ch)
         return False
 
     def _resolve_overshoot(self, ch: int, lo_pt: Point, hi_pt: Point) -> bool:
@@ -417,7 +472,11 @@ class DogStrategy:
         for _ in range(20):
             if math.dist(lo, hi) <= self.cfg.bisect_tolerance_m:
                 break
-            mid = ((lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0)
+            # 当前机器狗通常位于 hi（无信号端）。非对称分点靠近 hi，可少走回头路；
+            # direction/no_signal 仍分别更新 lo/hi，括号不变量和最终安全性不变。
+            f = self.cfg.bisect_fraction
+            mid = (lo[0] + f * (hi[0] - lo[0]),
+                   lo[1] + f * (hi[1] - lo[1]))
             payload = self.backend.measure(mid[0], mid[1], ch)
             kind = self.book.apply_measure(ch, mid, payload)
             self._log("bisect", channel=ch,
@@ -464,5 +523,8 @@ class DogStrategy:
             "unvisited_scan_points": unvisited,
             "known_not_cleared": known_not_cleared,
             "cleared": self.book.cleared_channels(),
-            "all_clear": not unvisited and not known_not_cleared,
+            "all_clear": self._max_sources_cleared() or (
+                not unvisited and not known_not_cleared
+            ),
+            "early_stop_at_max_sources": self._max_sources_cleared(),
         }

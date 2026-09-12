@@ -147,7 +147,7 @@ def main() -> int:
         sum_saved += r["saved"]
         print(
             f"{tag:<10}{r['total']:>6}{r['skipped']:>7}"
-            f"{(r["skipped"] / r["total"] * 100) if r["total"] else 0:>7.1f}%"
+            f"{(r['skipped'] / r['total'] * 100) if r['total'] else 0:>7.1f}%"
             f"{r['saved_measure']:>9.0f}{r['saved_switch']:>9.0f}{r['saved']:>8.0f}"
             f"{r['violated']:>6}"
         )

@@ -8,7 +8,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
 from cumcm_b3.config import StrategyConfig
 from cumcm_b3.backend_offline import OfflineSimulator,generate_case,WorldCases,Source
 from cumcm_b3.experimental_strategy import make_strategy
-from cumcm_b3.refined_strategy import closest_safe_point
+from cumcm_b3.refined_strategy import closest_safe_point,segment_safe_point
 from cumcm_b3.strategy import Task
 
 
@@ -89,6 +89,10 @@ class TestRefined(unittest.TestCase):
         self.assertLess(math.dist((-100,0),p),100)
         self.assertIsNone(closest_safe_point((0,0),[(-30,0),(30,0)]))
         self.assertEqual(closest_safe_point((0,0),poly),(0,0))
+        crossing=segment_safe_point((-100,0),(100,0),poly)
+        self.assertIsNotNone(crossing)
+        self.assertTrue(all(math.dist(crossing,v)<=18+1e-7 for v in poly))
+        self.assertIsNone(segment_safe_point((-100,100),(100,100),poly))
 
     def test_refinements_clear(self):
         for overrides in [dict(route_time_score=True),dict(step_replan=True),dict(safe_clear_point=True),

@@ -20,3 +20,8 @@ logs/runs/<测试标签>/
 - 产物 JSON 均为严格合法 JSON（非有限浮点统一写成 `null`）。
 - 队号 `202623001124` 会写入配置但日志中脱敏为 `***`；密码只用于模拟器登录界面，
   不写入任何文件。
+
+## 离线优化实验
+
+- [`experiments/progressive_prefix_20260913/README.md`](experiments/progressive_prefix_20260913/README.md)：
+  非对称越界搜索、取消成功后复测、19 点前缀搜索、16 源安全早停，以及当前 300 局指标。

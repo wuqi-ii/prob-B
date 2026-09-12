@@ -196,7 +196,9 @@ class ExperimentalStrategy(DogStrategy):
             if 0 < f < 1:
                 near = (station[0]+f*(point[0]-station[0]), station[1]+f*(point[1]-station[1]))
             options.append(JointTask('verify', point, track.channel, note=f'joint:{label}',
-                                     near_point=near, predicted_end=target))
+                                     near_point=near, predicted_end=target,
+                                     second_far_m=pair.effective_far_m,
+                                     boundary_clipped=pair.boundary_clipped))
         return min(options, key=lambda t: min(self._insertion_delta(cur, spine, t, pos)
                                               for pos in range(len(spine)+1)))
 
@@ -209,6 +211,10 @@ class ExperimentalStrategy(DogStrategy):
 
 
 def make_strategy(backend, cfg, verbose=False):
+    # 工厂是策略的唯一入口，这里再校验一次：直接调用工厂（脚本之外）也必须
+    # 拒绝互斥配置，否则会静默得到"半分激活"的策略。入口脚本已各自校验，
+    # 重复校验的开销只发生一次。
+    cfg.validate()
     if cfg.scan_relocation:
         from .relocated_strategy import RelocatedStrategy
         return RelocatedStrategy(backend,cfg,verbose=verbose)
@@ -218,7 +224,7 @@ def make_strategy(backend, cfg, verbose=False):
     if cfg.adaptive_verify or cfg.route_multistart or cfg.recovery_verify:
         from .forward_strategy import ForwardStrategy
         return ForwardStrategy(backend, cfg, verbose=verbose)
-    if cfg.shared_observations != 'off' or cfg.route_polish:
+    if cfg.shared_observations != 'off' or cfg.route_polish or cfg.planned_stop_reuse:
         from .shared_strategy import SharedStrategy
         return SharedStrategy(backend, cfg, verbose=verbose)
     cls = ExperimentalStrategy if cfg.adaptive_search or cfg.joint_service else DogStrategy

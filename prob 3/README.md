@@ -2,6 +2,14 @@
 
 本目录是问题 3 的完整工程：**策略引擎 + 离线自验模拟器 + 真实模拟器适配层 + 验证数据 + 文档**。
 
+### 2026-09-12：边界动态 R 第二检测点实验（暂不替换主配置）
+
+新增 `configs/optimized_dynamic_R.json`：首次示向扇形被场地边界截短时，计算安全径向上界 `R`，并用
+问题2新参数函数 `P*(R)` 生成第二检测点；未截短时仍用 `(764,±526)`。200局与
+`optimized_threefix` 同种子配对均为2633/2633全清，但动态方案平均慢6.23秒；加入原点共同参与路线评分后
+仍平均慢3.29秒且差异区间跨0。说明孤立第二点更近不必然缩短完整服务路线。功能作为实验开关保留，主配置不改。
+详见 `logs/experiments/dynamic_R_validation_20260912/README.md`。
+
 ### 2026-09-12：三项日志驱动优化
 
 **真实演练 optimized_threefix01 已完成：11/11全清，3182.29秒（53.0分钟），171请求，11次清除全部命中，7/7扫描任务完成，正常all_done退出。** 本局实际触发1次经连续覆盖证明的扫描点平移；17次共享观测；没有触发失败重定位、give_up或清除失败。服务端与本地虚拟时间一致。日志位于 `logs/runs/optimized_threefix/optimized_threefix01/`。同为11源的历史drill10为3530.88秒，但源位置不同，不能将348.59秒差值全部解释为策略收益。
@@ -112,7 +120,13 @@ prob 3/
 │   ├─ coverage.py              七点扫描布局与覆盖校核
 │   ├─ second_station.py        第二检测点候选域（复用问题 2 结论）
 │   ├─ tracker.py               20 个频道的观测账本与可行域推断
-│   ├─ strategy.py              ★ 策略主引擎（三类任务点滚动最近邻）
+│   ├─ strategy.py              ★ 策略主引擎（三类任务 + 覆盖主路线 + 最小绕路插入）
+│   ├─ shared_strategy.py       叠加：机会性共享观测、开放路线 2-opt、停靠复用
+│   ├─ experimental_strategy.py 叠加：动态覆盖/联合行程实验 + 策略工厂 make_strategy
+│   ├─ forward_strategy.py      叠加：多起点路线、恢复验证、源数上界停机
+│   ├─ refined_strategy.py      叠加：稳健清除点、逐步重规划
+│   ├─ relocated_strategy.py    叠加：扫描点平移（须通过连续覆盖证书）
+│   ├─ coverage_certificate.py  连续覆盖证书（扫描点平移的准入判据）
 │   ├─ backend_offline.py       离线自验模拟器（复现赛题全部规则）
 │   ├─ backend_http.py          真实模拟器适配层（含墙钟看门狗）
 │   ├─ client.py                模拟器 HTTP 客户端（复用自 web/simulator_client.py）
@@ -122,10 +136,9 @@ prob 3/
 │   ├─ run_offline.py           离线批量验证
 │   ├─ run_drill.py             ★ 演练测试入口（唯一真实通路）
 │   └─ sweep.py                 参数敏感性扫描
-├─ tests/
-│   ├─ test_geometry.py         几何内核单元测试
-│   ├─ test_pipeline.py         端到端闭环 + 模拟器规则一致性
-│   └─ test_http_protocol.py    协议契约（字段白名单）+ 演练脚本装配 + 真值读取
+├─ tests/                   11 个测试模块，共 111 项（几何 / 覆盖 / 协议 / 调度 /
+│                           各策略层 / 产物序列化 / 配置守卫）
+├─ pyproject.toml           ruff 静态检查规则（当前零告警）
 ├─ ref/                     赛题资料（附件1 通信协议）
 ├─ logs/                    演练日志与汇总索引
 │   ├─ drill_index.jsonl        每局一行核心指标，方便批量比较
@@ -210,8 +223,9 @@ logs/runs/<标签>/effective_config.json
 
 - 第二轮真实演练已完成`round2_01`—`round2_05`共5局，累计71/71全清，所有清除全部一次命中，均完成7/7扫描且无恢复、失败或放弃。逐局日志和汇总位于`logs/runs/second_round/`，详见`ROUND_SUMMARY.md`。
 - 修复后的 `drill02`—`drill12` 十一次真实演练累计清除 **147/147** 个目标，清除动作 147 次全部命中、
-  零 HTTP 错误，均正常 `all_done` 并主动退出；其中 drill02–drill10 为基线配置，
-  drill11 起启用"近端优先验证点"（`verify_near_fraction=0.4`）。样本量仍有限，
+  零 HTTP 错误，均正常 `all_done` 并主动退出。三组口径不同、**不可直接同比**：drill02–drill10 为基线配置
+  （`verify_near_fraction=0`），drill11–drill12 用的是**当时的默认配置**（`verify_near_fraction=0.4`），
+  而当前推荐配置 `configs/optimized_threefix.json` 已把该比例调为 **0.1**。样本量仍有限，
   当前结论是连接与策略闭环已经跑通，不能据此宣称路线最优。
 - 环半径 1150 m 的最坏点间距为 988.5 m，余量仅 11.5 m。若对边界源不放心，
   用 `--config configs/conservative_1300.json` 换 1300 m（余量 63.5 m，代价约 +8% 行程）。
@@ -247,3 +261,11 @@ logs/runs/<标签>/effective_config.json
 - `output/pdf/problem3_chapter.pdf`：独立排版预览。
 
 历史章节中的旧配置与旧结论仅用于保留优化过程，不再代表当前策略。正式结果仍须在三次正式测试后填入，五次演练不得冒充正式测试。
+
+## 10. 动态 R 后续优化结论（2026-09-12）
+
+- 新增默认关闭的 `planned_stop_reuse`：仅当机器狗已经到达的停靠点严格落入某频道的问题2候选区域时，原地兼任第二检测点；检查包含1000米最坏接收、31度交会角与示向显示舍入容差。
+- 30局中严格复用没有触发，结果与动态R混合策略逐局一致；说明它安全但机会很少。
+- 尝试把验证软延期到未来扫描点，虽减少请求却平均增加23.53—49.16秒，原因是破坏全路线顺序；相关代码已删除，只保留实验日志。
+- 尝试给动态点增加50—400米路线节省门槛也无收益，参数已删除，避免继续膨胀模型。
+- 当前推荐配置仍是 `configs/optimized_threefix.json`。动态R和停靠复用只作为独立实验，详见 `logs/experiments/planned_stop_reuse_20260912/README.md`。

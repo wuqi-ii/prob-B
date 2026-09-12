@@ -160,8 +160,12 @@ def main() -> int:
           f"耗时评分 {cfg.route_time_score}，逐步重排 {cfg.step_replan}，安全清除点 {cfg.safe_clear_point}，"
           f"扫描平移 {cfg.scan_relocation}，接收距离界 {cfg.received_range_bound}，"
           f"失败重定位 {cfg.recovery_verify}，"
+          f"边界动态R第二点 {cfg.dynamic_second_station}，"
+          f"计划停靠点复用 {cfg.planned_stop_reuse}，"
           f"角度舍入容差 {cfg.bearing_rounding_slack_deg:g}°，"
           f"16源完成即停止 {cfg.stop_at_source_upper_bound}，"
+          f"发现16源即停止搜索 {cfg.stop_search_when_all_sources_known}，"
+          f"扫描点全测未清除频道 {cfg.scan_all_channels_at_scan_points}，"
           f"环半径 {cfg.scan_ring_radius_m:.0f} m × {cfg.scan_ring_count} 环点 "
           f"+ 原点，逼近步长系数 {cfg.approach_step_ratio}，"
           f"第二检测点 ({cfg.second_station_local_a_m:g}, ±{cfg.second_station_local_b_m:g}) m，"
@@ -284,8 +288,13 @@ def main() -> int:
             "scan_relocation": cfg.scan_relocation,
             "received_range_bound": cfg.received_range_bound,
             "recovery_verify": cfg.recovery_verify,
+            "dynamic_second_station": cfg.dynamic_second_station,
+            "planned_stop_reuse": cfg.planned_stop_reuse,
             "bearing_rounding_slack_deg": cfg.bearing_rounding_slack_deg,
             "stop_at_source_upper_bound": cfg.stop_at_source_upper_bound,
+            "stop_search_when_all_sources_known": cfg.stop_search_when_all_sources_known,
+            "scan_all_channels_at_scan_points": cfg.scan_all_channels_at_scan_points,
+            "post_clear_verify": cfg.post_clear_verify,
             "scheduler_mode": cfg.scheduler_mode,
             "verify_near_fraction": cfg.verify_near_fraction,
             "second_station_local_a_m": cfg.second_station_local_a_m,
@@ -322,8 +331,13 @@ def main() -> int:
         "scan_relocation": cfg.scan_relocation,
         "received_range_bound": cfg.received_range_bound,
         "recovery_verify": cfg.recovery_verify,
+        "dynamic_second_station": cfg.dynamic_second_station,
+        "planned_stop_reuse": cfg.planned_stop_reuse,
         "bearing_rounding_slack_deg": cfg.bearing_rounding_slack_deg,
         "stop_at_source_upper_bound": cfg.stop_at_source_upper_bound,
+        "stop_search_when_all_sources_known": cfg.stop_search_when_all_sources_known,
+        "scan_all_channels_at_scan_points": cfg.scan_all_channels_at_scan_points,
+        "post_clear_verify": cfg.post_clear_verify,
         "verify_near_fraction": cfg.verify_near_fraction,
         "second_station_local_a_m": cfg.second_station_local_a_m,
         "second_station_local_b_m": cfg.second_station_local_b_m,

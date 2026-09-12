@@ -26,11 +26,11 @@ class TestSurroundingNet(unittest.TestCase):
 
     def test_point_count_and_layout(self):
         pts = coverage.scan_points(self.cfg)
-        # 中心 + 内环 8 + 外环 18 = 27
-        self.assertEqual(len(pts), 1 + 8 + 18)
+        # 中心 + 内环 + 外环（点数由配置决定，当前默认 1 + 8 + 14 = 23）
+        self.assertEqual(len(pts), 1 + self.cfg.scan_inner_count + self.cfg.scan_outer_count)
         self.assertEqual(pts[0], (0.0, 0.0))
-        inner = pts[1:9]
-        outer = pts[9:]
+        inner = pts[1 : 1 + self.cfg.scan_inner_count]
+        outer = pts[1 + self.cfg.scan_inner_count :]
         for p in inner:
             self.assertAlmostEqual(math.hypot(*p), self.cfg.scan_inner_radius_m, places=6)
         for p in outer:
@@ -39,7 +39,7 @@ class TestSurroundingNet(unittest.TestCase):
     def test_outer_ring_is_outside_arena(self):
         """外环必须在目标区域外，否则贴边且楔朝外的源会漏检。"""
         self.assertGreater(self.cfg.scan_outer_radius_m, ARENA_RADIUS_M)
-        for p in coverage.scan_points(self.cfg)[9:]:
+        for p in coverage.scan_points(self.cfg)[1 + self.cfg.scan_inner_count :]:
             self.assertGreater(math.hypot(*p), ARENA_RADIUS_M)
 
     def test_worst_required_radius_below_reception(self):
@@ -51,6 +51,25 @@ class TestSurroundingNet(unittest.TestCase):
         info = coverage.grid_verify(self.cfg, step_m=40.0, ang_step_deg=3.0)
         self.assertTrue(info["covers"])
         self.assertGreater(info["margin_m"], 20.0)
+
+    def test_orientation_check_catches_narrow_outward_gap(self):
+        """角度采样会漏掉的极窄朝外盲区，精确极角判据必须识别。"""
+        from dataclasses import replace
+
+        unsafe = replace(
+            self.cfg,
+            scan_outer_count=16,
+            scan_outer_radius_m=1805.0,
+        )
+        points = coverage.scan_points(unsafe)
+        required = coverage.required_radius_at_position((-1787.7, -37.4), points)
+        self.assertTrue(math.isinf(required))
+
+        safe_points = coverage.scan_points(self.cfg)
+        safe_required = coverage.required_radius_at_position(
+            (-1787.7, -37.4), safe_points
+        )
+        self.assertLess(safe_required, RECEIVER_MIN_M)
 
     def test_config_rejects_layout_without_guaranteed_coverage(self):
         # 外环收到区域内部（无法包围贴边源）应被拒绝

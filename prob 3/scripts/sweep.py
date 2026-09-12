@@ -21,7 +21,6 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from cumcm_b3.backend_offline import OfflineSimulator, generate_case  # noqa: E402
 from cumcm_b3.config import StrategyConfig  # noqa: E402
-from cumcm_b3.metrics import aggregate  # noqa: E402
 from cumcm_b3.strategy import DogStrategy  # noqa: E402
 
 
@@ -30,7 +29,7 @@ def evaluate(cfg: StrategyConfig, seeds: list[int]) -> dict:
     for seed in seeds:
         case = generate_case(seed)
         sim = OfflineSimulator(case)
-        stats = DogStrategy(sim, cfg).run()
+        DogStrategy(sim, cfg).run()
         cleared = sim.case.count_cleared()
         results.append({
             "seed": seed,

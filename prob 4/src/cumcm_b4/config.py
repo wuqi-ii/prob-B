@@ -55,7 +55,7 @@ CLEAR_MISS_COST_S = OPTICAL_COST_S
 
 @dataclass(frozen=True)
 class StrategyConfig:
-    """策略可调参数。默认值对应文档中的基准配置（27 点包围网）。"""
+    """策略可调参数。默认值对应优化后的 23 点包围网（中心 + 内环 8 + 外环 14）。"""
 
     # ---- 包围网覆盖普查（问题 4 的核心改动）----
     # 中心点恒为原点（机器狗出发点）。内环 + 外环共同构成"包围网"：
@@ -64,8 +64,16 @@ class StrategyConfig:
     # 否则边界处、楔朝外的定向源会漏检（内接多边形盖不住圆盘边缘）。
     scan_inner_radius_m: float = 980.0    # 内环到原点距离
     scan_inner_count: int = 8             # 内环点数
-    scan_outer_radius_m: float = 1840.0   # 外环到原点距离（> 1800，目标区域外）
-    scan_outer_count: int = 18            # 外环点数
+    scan_outer_radius_m: float = 1848.0   # 外环到原点距离（> 1800，目标区域外）
+    scan_outer_count: int = 14            # 外环点数（与内环合计 23 点）
+    # 盲区补点：均匀双环受整数点数约束，减点后会在少数扇区留下盲区。
+    # 这些自由点用于精准填补盲区，避免为覆盖一个小扇区而补整个环。
+    # 默认空：不改动现有 23 点网的行为。
+    scan_extra_points: tuple = ()
+    # 显式声明「本布局的 worst 超过 1000 m 安全线，我接受漏检风险」。
+    # 用于激进的稀疏网（省约 5.8% 时间，代价是全清率约 99.83%）。
+    # 默认 False：validate() 会拒绝任何覆盖不足的布局。
+    allow_unsafe_coverage: bool = False
     disk_sides: int = 64                  # 圆域外接多边形的边数
 
     # ---- 同向推进点（问题 4 取代问题 2 的垂直第二检测点）----
@@ -79,6 +87,10 @@ class StrategyConfig:
     approach_max_step_m: float = 400.0    # 逼近步长上限，防止越过源（定向源楔外不可测）
     approach_max_iterations: int = 60     # 单个目标的逼近迭代上限
     clear_safety_margin_m: float = 2.0    # 判定「质心可直接清除」的余量
+    bisect_tolerance_m: float = 12.0      # 越过源后二分恢复的收敛阈值
+    # 二分的「有信号/无信号」括号长度收敛到该阈值即停，取中点清除。
+    # 因真源必落在括号内、且 /clear 半径 20 m，阈值放大到 2*(20-横向误差) 仍安全，
+    # 但放大能省下最后一次往返。默认 12.0 与历史行为一致。
 
     # ---- 定向源的光学环形兜底（/clear 只看距离、不看覆盖角）----
     ring_clear_radius_m: float = 15.0     # 环形清除的半径
@@ -94,7 +106,11 @@ class StrategyConfig:
     route_replan_every_step: bool = True   # 每完成一个任务点后是否重算路径
     scan_all_channels_at_scan_points: bool = True  # 在必访扫描点是否扫全部未确认频道
     task_bias_clear_m: float = 0.0         # 清除任务的等效距离优惠（越大越优先）
-    task_bias_verify_m: float = 0.0        # 验证任务的等效距离优惠
+    # 负值表示适度延后远距离验证任务，减少包围网遍历被来回打断。
+    # 加入「终局重试」（扫描网走完后解冻冻结频道重试）之后，-500 ~ -2000 m 是平台区；
+    # 配对 300 案例以 -700 m 最优（全清，相对 -300 再省约 5%），故设为默认。
+    # 注意：-400 m 起会漏清是「加终局重试之前」的旧结论，已作废。见 RESULTS.md 6.3。
+    task_bias_verify_m: float = -700.0
     opportunistic_radius_m: float = 600.0  # 顺捎检测的作用半径
     opportunistic_max_per_stop: int = 3    # 单次停留最多顺捎几个频道
     opportunistic_min_diameter_m: float = 40.0  # 区域已足够小就不必顺捎
@@ -105,6 +121,21 @@ class StrategyConfig:
     request_timeout_s: float = 10.0
     max_requests: int = 8000              # 请求数硬上限（包围网点数多，放宽）
     virtual_time_budget_s: float = float("inf")  # 虚拟时间软预算
+
+    def __post_init__(self) -> None:
+        """规范化盲区补点：JSON 往返会把 tuple 变成 list。
+
+        统一转回 (x, y) 元组，保证 strategy 里 scan_points.index(point)
+        能按坐标匹配，也保证配置对象的相等比较稳定。
+        """
+        if self.scan_extra_points:
+            norm = []
+            for p in self.scan_extra_points:
+                x, y = float(p[0]), float(p[1])
+                if math.hypot(x, y) > ARENA_RADIUS_M:
+                    raise ValueError("补点必须位于目标区域内")
+                norm.append((x, y))
+            object.__setattr__(self, "scan_extra_points", tuple(norm))
 
     def validate(self) -> None:
         """参数可行性检查：包围网必须覆盖，几何参数必须在合理区间。"""
@@ -118,10 +149,11 @@ class StrategyConfig:
             raise ValueError("scan_outer_count 至少为 6")
         from .coverage import coverage_worst_required_radius  # 惰性导入，避免循环依赖
         worst = coverage_worst_required_radius(self, step_m=40.0, ang_step_deg=3.0)
-        if worst > RECEIVER_MIN_M + 1e-9:
+        if worst > RECEIVER_MIN_M + 1e-9 and not self.allow_unsafe_coverage:
             raise ValueError(
                 "包围网不能按最坏接收半径覆盖目标区域："
                 f"需要接收半径 {worst:.3f} m > {RECEIVER_MIN_M:.3f} m"
+                "（若确知风险，可设 allow_unsafe_coverage=True）"
             )
         if not 0 < self.approach_step_ratio < 1:
             raise ValueError("approach_step_ratio 必须位于 (0, 1)")

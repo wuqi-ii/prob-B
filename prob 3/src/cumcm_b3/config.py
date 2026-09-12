@@ -89,8 +89,11 @@ class StrategyConfig:
     scan_relocation: bool = False
     received_range_bound: bool = False
     recovery_verify: bool = False
+    dynamic_second_station: bool = False  # 场地截短首次示向扇形时，用动态 R 生成第二检测点
+    planned_stop_reuse: bool = False  # 已实际到达点满足硬约束时，原地兼任第二检测点
     bearing_rounding_slack_deg: float = 0.0  # numerical rounding, not physical error relaxation
     stop_at_source_upper_bound: bool = False
+    stop_search_when_all_sources_known: bool = False  # 已发现16个不同频道后取消剩余覆盖搜索
     opportunistic_scan: bool = True        # 是否启用顺路/顺频道捎带检测
     route_replan_every_step: bool = True   # 每完成一个任务点后是否重算路径
     scan_all_channels_at_scan_points: bool = True  # 在必访扫描点是否扫全部未确认频道
@@ -138,7 +141,7 @@ class StrategyConfig:
             raise ValueError('route_polish 必须是布尔值')
         if not isinstance(self.adaptive_verify, bool) or not isinstance(self.route_multistart, bool):
             raise ValueError('adaptive_verify/route_multistart 必须是布尔值')
-        for name in ('route_time_score', 'step_replan', 'safe_clear_point', 'scan_relocation', 'received_range_bound', 'recovery_verify', 'stop_at_source_upper_bound'):
+        for name in ('route_time_score', 'step_replan', 'safe_clear_point', 'scan_relocation', 'received_range_bound', 'recovery_verify', 'dynamic_second_station', 'planned_stop_reuse', 'stop_at_source_upper_bound', 'stop_search_when_all_sources_known'):
             if not isinstance(getattr(self,name),bool):
                 raise ValueError(name+' 必须是布尔值')
         if self.scan_relocation and (self.adaptive_search or self.joint_service or self.shared_observations=='batch'):

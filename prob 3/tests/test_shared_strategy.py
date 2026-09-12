@@ -8,11 +8,28 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'src'))
 from cumcm_b3.backend_offline import OfflineSimulator, generate_case, WorldCases, Source
 from cumcm_b3.config import StrategyConfig
 from cumcm_b3.experimental_strategy import make_strategy
-from cumcm_b3.shared_strategy import SharedStrategy, BatchTask, polish_route
+from cumcm_b3.shared_strategy import BatchTask, polish_route
 from cumcm_b3.strategy import DogStrategy, Task
 
 
 class TestSharedStrategy(unittest.TestCase):
+    def test_actual_stop_reuses_second_station_only_when_safe(self):
+        cfg = replace(StrategyConfig(), planned_stop_reuse=True,
+                      dynamic_second_station=True, verify_near_fraction=0.1)
+        sim = OfflineSimulator(WorldCases([Source(1, 1500.0, 0.0, 1000.0)], 1))
+        sim.enter()
+        s = make_strategy(sim, cfg)
+        s.book[1].add_direction((0.0, 0.0), 0.0)
+        s._opportunistic_pass((700.0, 520.0))
+        self.assertEqual(len(s.book[1].observations), 2)
+        self.assertTrue(any(e['event'] == 'verify_reuse' for e in s.stats.events))
+
+        s2 = make_strategy(OfflineSimulator(WorldCases([], 1)), cfg)
+        s2.book[1].add_direction((0.0, 0.0), 0.0)
+        s2._opportunistic_pass((300.0, 0.0))
+        self.assertEqual(len(s2.book[1].observations), 1)
+
+
     def test_open_route_polish_preserves_tasks_and_decreases_length(self):
         tasks = [Task('clear', (100, 0), 1), Task('clear', (0, 100), 2),
                  Task('clear', (100, 100), 3), Task('clear', (50, 0), 4)]

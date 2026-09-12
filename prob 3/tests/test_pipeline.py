@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import sys
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -117,6 +118,49 @@ class TestSecondStation(unittest.TestCase):
             d = math.dist((10.0, 20.0), p)
             self.assertAlmostEqual(d, math.hypot(764.0, 526.0), places=6)
 
+    def test_dynamic_R_keeps_original_point_without_boundary_clipping(self):
+        cfg = replace(self.cfg, dynamic_second_station=True)
+        pair = second_station.candidate_pair((0.0, 0.0), 0.0, cfg)
+        self.assertFalse(pair.boundary_clipped)
+        self.assertEqual(pair.effective_far_m, 1500.0)
+        self.assertEqual(pair.local_optimum, (764.0, 526.0))
+
+    def test_dynamic_R_shortens_outward_boundary_case(self):
+        cfg = replace(self.cfg, dynamic_second_station=True,
+                      bearing_rounding_slack_deg=0.005001)
+        pair = second_station.candidate_pair((1200.0, 0.0), 20.0, cfg)
+        self.assertTrue(pair.boundary_clipped)
+        self.assertGreater(pair.effective_far_m, 620.0)
+        self.assertLess(pair.effective_far_m, 640.0)
+        self.assertLess(pair.separation_m, 450.0)
+
+    def test_dynamic_R_uses_whole_error_wedge_not_only_center_ray(self):
+        cfg = replace(self.cfg, dynamic_second_station=True)
+        far, clipped = second_station.effective_far_distance((1200.0, 0.0), 20.0, cfg)
+        center = second_station._ray_exit_distance((1200.0, 0.0), math.radians(20.0))
+        self.assertTrue(clipped)
+        self.assertGreater(far, center)
+
+    def test_dynamic_R_piecewise_points_remain_feasible(self):
+        cfg = replace(self.cfg, dynamic_second_station=True)
+        for far in range(100, 1501, 25):
+            a, b = second_station.parametric_local_point(float(far), cfg)
+            h = far * math.tan(math.radians(1.0))
+            t = math.tan(math.radians(cfg.second_station_min_angle_deg))
+            self.assertTrue(second_station._feasible(
+                a, b, cfg.second_station_reach_m, float(far), h, t), far)
+
+    def test_reusable_station_uses_problem2_hard_region(self):
+        cfg = replace(self.cfg, planned_stop_reuse=True)
+        safe, far = second_station.certifies_reusable_station(
+            (700.0, 520.0), (0.0, 0.0), 0.0, cfg)
+        self.assertTrue(safe)
+        self.assertEqual(far, 1500.0)
+        unsafe, _ = second_station.certifies_reusable_station(
+            (300.0, 0.0), (0.0, 0.0), 0.0, cfg)
+        self.assertFalse(unsafe)
+
+
 
 class TestEndToEnd(unittest.TestCase):
     """在本地模拟器上端到端验证：全部清除，且时间量级合理。"""
@@ -125,7 +169,7 @@ class TestEndToEnd(unittest.TestCase):
         cfg = StrategyConfig()
         case = generate_case(seed)
         sim = OfflineSimulator(case)
-        stats = DogStrategy(sim, cfg).run()
+        DogStrategy(sim, cfg).run()
         return case.total, sim.case.count_cleared(), sim.virtual_time_s
 
     def test_all_cleared_multiple_seeds(self):
@@ -167,6 +211,20 @@ class TestEndToEnd(unittest.TestCase):
         self.assertIsNone(strategy.select_task())
         self.assertEqual(strategy._no_task_stop_reason(), "unresolved_targets")
         self.assertFalse(strategy.status()["all_clear"])
+
+    def test_scan_can_skip_already_localized_channels(self):
+        cfg = replace(StrategyConfig(), scan_all_channels_at_scan_points=False)
+        sim = OfflineSimulator(generate_case(1))
+        sim.enter()
+        strategy = DogStrategy(sim, cfg)
+        strategy.book[1].add_direction((10.0, 0.0), 0.0)
+        strategy.book[1].add_direction((10.0, 10.0), 0.0)
+        strategy.book[2].add_direction((10.0, 0.0), 0.0)
+        for ch in range(3, 21):
+            strategy.book[ch].cleared = True
+        before = sim.request_count
+        strategy._visit_scan_point(0)
+        self.assertEqual(sim.request_count - before, 1)
 
 
 class TestOfflineSimulatorRules(unittest.TestCase):

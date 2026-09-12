@@ -65,6 +65,23 @@ class TestDirectionalLocate(unittest.TestCase):
         stats = DogStrategy(sim, StrategyConfig()).run()
         self.assertEqual(stats.cleared_count, 1)
 
+    def test_terminal_retry_recovers_last_frozen_target(self):
+        """扫描结束后的冻结目标必须获得有上限的收尾重试机会。"""
+        sim = OfflineSimulator(generate_case(1, directional_prob=0.5))
+        strat = DogStrategy(sim, StrategyConfig())
+        strat.visited_scan = [True] * len(strat.visited_scan)
+        track = strat.book[6]
+        track.add_direction((0.0, 0.0), 0.0)
+        track.add_direction((0.0, 100.0), 315.0)
+        strat._blocked_at_obs[6] = len(track.observations)
+
+        task = strat.select_task()
+        self.assertIsNotNone(task)
+        self.assertEqual(task.channel, 6)
+        self.assertEqual(task.kind, "clear")
+        self.assertNotIn(6, strat._blocked_at_obs)
+        self.assertTrue(any(e["event"] == "terminal_retry" for e in strat.stats.events))
+
 
 class TestRingClearFallback(unittest.TestCase):
     def test_ring_clear_hits_source_within_radius(self):

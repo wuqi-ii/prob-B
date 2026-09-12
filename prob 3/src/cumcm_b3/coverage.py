@@ -26,7 +26,6 @@ from .config import (
     RECEIVER_MIN_M,
     StrategyConfig,
 )
-from .geometry import disk_outer_polygon, clip_halfplane
 
 
 Point = Tuple[float, float]

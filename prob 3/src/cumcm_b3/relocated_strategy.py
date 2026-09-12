@@ -5,6 +5,23 @@ from .strategy import Task
 
 
 class RelocatedStrategy(RefinedStrategy):
+    def _scan_index(self, task):
+        """把扫描任务解析成扫描点下标。
+
+        基类 ``_scan_tasks`` 生成的 note 形如 ``S3``，但子类改写后可能是别的
+        形态；直接 ``int(note[1:])`` 会在 note 不含数字时抛出难以定位的
+        ValueError。这里先按约定解析，失败则按点位回退，仍失败就给出明确错误。
+        """
+        note = task.note or ''
+        if note[:1] == 'S' and note[1:].isdigit():
+            idx = int(note[1:])
+            if 0 <= idx < len(self.scan_points):
+                return idx
+        for i, point in enumerate(self.scan_points):
+            if math.dist(point, task.point) < 1e-9:
+                return i
+        raise ValueError(f"无法把扫描任务定位到扫描点：note={note!r} point={task.point}")
+
     def select_task(self):
         task=super().select_task()
         if task is None or task.kind!='scan':
@@ -37,7 +54,7 @@ class RelocatedStrategy(RefinedStrategy):
 
     def execute(self,task):
         if task.kind=='scan':
-            self._visit_scan_point(int(task.note[1:]))
+            self._visit_scan_point(self._scan_index(task))
             return
         if task.kind=='relocated_scan':
             idx=int(task.note)

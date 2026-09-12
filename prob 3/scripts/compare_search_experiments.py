@@ -38,6 +38,38 @@ OVERRIDES = {
 }
 
 BASE_REFINED = dict(shared_observations='opportunistic',verify_near_fraction=.1,route_multistart=True)
+OPTIMIZED_THREEFIX = dict(**BASE_REFINED, recovery_verify=True,
+    bearing_rounding_slack_deg=.005001, stop_at_source_upper_bound=True,
+    scan_relocation=True)
+OVERRIDES['threefix'] = OPTIMIZED_THREEFIX
+OVERRIDES['dynamic_hybrid'] = dict(**OPTIMIZED_THREEFIX, dynamic_second_station=True)
+OVERRIDES['dynamic_reuse'] = dict(**OPTIMIZED_THREEFIX, dynamic_second_station=True,
+                                  planned_stop_reuse=True)
+OVERRIDES['lean_scan'] = dict(**OPTIMIZED_THREEFIX,
+                              scan_all_channels_at_scan_points=False)
+OVERRIDES['known16_stop'] = dict(**OPTIMIZED_THREEFIX,
+                                 stop_search_when_all_sources_known=True)
+OVERRIDES['no_postcheck'] = dict(**OPTIMIZED_THREEFIX, post_clear_verify=False)
+OVERRIDES['lean_actions'] = dict(**OPTIMIZED_THREEFIX,
+    scan_all_channels_at_scan_points=False,
+    stop_search_when_all_sources_known=True,
+    post_clear_verify=False)
+LEAN_ACTIONS = OVERRIDES['lean_actions']
+OVERRIDES['lean_no_opportunistic'] = {
+    **LEAN_ACTIONS, 'shared_observations':'off', 'opportunistic_scan':False}
+OVERRIDES['lean_legacy_opportunistic'] = {
+    **LEAN_ACTIONS, 'shared_observations':'off', 'opportunistic_scan':True}
+OVERRIDES['lean_near005'] = {**LEAN_ACTIONS, 'verify_near_fraction':.05}
+OVERRIDES['lean_near020'] = {**LEAN_ACTIONS, 'verify_near_fraction':.2}
+OVERRIDES['lean_approach095'] = {**LEAN_ACTIONS, 'approach_step_ratio':.95}
+OVERRIDES['lean_approach099'] = {**LEAN_ACTIONS, 'approach_step_ratio':.99}
+OVERRIDES['lean_safe'] = {**LEAN_ACTIONS, 'safe_clear_point':True}
+OVERRIDES['lean_step'] = {**LEAN_ACTIONS, 'step_replan':True}
+OVERRIDES['lean_safe_step'] = {
+    **LEAN_ACTIONS, 'safe_clear_point':True, 'step_replan':True}
+OVERRIDES['lean_timed'] = {**LEAN_ACTIONS, 'route_time_score':True}
+OVERRIDES['lean_timed_safe'] = {
+    **LEAN_ACTIONS, 'route_time_score':True, 'safe_clear_point':True}
 for _name,_changes in {
     'timed': dict(route_time_score=True),
     'step': dict(step_replan=True),

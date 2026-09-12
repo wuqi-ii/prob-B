@@ -12,7 +12,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from cumcm_b3 import geometry  # noqa: E402
-from cumcm_b3.config import StrategyConfig  # noqa: E402
 
 
 def point_in_convex_polygon(p, poly, tol=1e-7):
@@ -82,7 +81,6 @@ class TestWedge(unittest.TestCase):
 
 class TestLocate(unittest.TestCase):
     def two_station_locate(self):
-        cfg = StrategyConfig()
         src = (300.0, 400.0)
         s1 = (0.0, 0.0)
         s2 = (800.0, 0.0)

@@ -2,7 +2,7 @@
 
 策略一句话
 ----------
-维护三类"任务点"——**必访扫描点**（27 点包围网，保证任意朝向的定向源不漏检）、
+维护三类"任务点"——**必访扫描点**（25 点包围网，覆盖任意朝向的定向源）、
 **待清除点**（已观测到信号的频道，逼近到 20 m 内清除）、**同向推进点**（只有一次
 示向度的频道，沿示向度朝源推进补第二观测）；每一步按路径代价最小挑一个执行，
 直到"包围网走完 + 所有已知频道清除"。
@@ -185,17 +185,53 @@ class DogStrategy:
                 )
 
         if not candidates:
+            # 扫描网走完后，冻结频道已经不可能再从后续扫描点获得新观测。
+            # 若继续永久冻结，会把一次可恢复的清除失手直接变成 unresolved_targets。
+            # 此时逐个解除冻结做有限次数收尾重试；_finalize 中的单频道尝试上限
+            # 仍然生效，因此不会形成无限循环。
+            if all(self.visited_scan):
+                retryable = [
+                    ch for ch in self._blocked_at_obs
+                    if ch not in self._give_up and not self.book[ch].cleared
+                ]
+                if retryable:
+                    def estimated_distance(ch: int) -> float:
+                        track = self.book[ch]
+                        summary = track.geometry_summary(cfg)
+                        point = summary["centroid"]
+                        if point is None and track.near_points:
+                            point = track.near_points[-1]
+                        return math.dist(cur, point) if point is not None else math.inf
+
+                    ch = min(retryable, key=estimated_distance)
+                    frozen_at = self._blocked_at_obs.pop(ch)
+                    self._log(
+                        "terminal_retry",
+                        channel=ch,
+                        attempts=self._clear_attempts.get(ch, 0),
+                        observations=frozen_at,
+                    )
+                    # 解除一个频道后重新生成任务，保持原有滚动最近邻逻辑。
+                    return self.select_task()
             return None
 
-        def cost(t: Task) -> float:
-            d = math.dist(cur, t.point)
-            if t.kind == "clear":
-                d -= cfg.task_bias_clear_m
-            elif t.kind == "verify":
-                d -= cfg.task_bias_verify_m
-            return d
+        return min(candidates, key=lambda t: self._priority(t, cur))
 
-        return min(candidates, key=cost)
+    def _priority(self, task: Task, cur: Point) -> float:
+        """单个任务的调度优先级代价：等效距离，越小越先做。
+
+        滚动最近邻的默认口径是"当前点到任务点的直线距离"，再对 clear / verify
+        任务叠加一个等效距离优惠 ``task_bias_*_m``：正值提前、负值延后。
+        把它抽成方法是为了让"插入绕行代价""按剩余扫描点比例衰减"等更聪明的
+        调度规则能以子类方式试验，而不必改主干。
+        """
+        cfg = self.cfg
+        d = math.dist(cur, task.point)
+        if task.kind == "clear":
+            d -= cfg.task_bias_clear_m
+        elif task.kind == "verify":
+            d -= cfg.task_bias_verify_m
+        return d
 
     # ---------------- 任务执行 ----------------
     def execute(self, task: Task) -> None:
@@ -379,7 +415,7 @@ class DogStrategy:
         lo = lo_pt
         hi = hi_pt
         for _ in range(20):
-            if math.dist(lo, hi) <= 12.0:
+            if math.dist(lo, hi) <= self.cfg.bisect_tolerance_m:
                 break
             mid = ((lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0)
             payload = self.backend.measure(mid[0], mid[1], ch)

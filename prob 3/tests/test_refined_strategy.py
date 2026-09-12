@@ -52,6 +52,16 @@ class TestRefined(unittest.TestCase):
         s.book[16].cleared=False
         self.assertIsNotNone(s.select_task())
 
+    def test_discovering_sixteen_sources_removes_only_search_tasks(self):
+        cfg=replace(StrategyConfig(),route_multistart=True,
+                    stop_search_when_all_sources_known=True)
+        s=make_strategy(OfflineSimulator(generate_case(1)),cfg)
+        for ch in range(1,17):
+            s.book[ch].add_direction((0.0,0.0),float(ch))
+        self.assertEqual(s._scan_tasks(),[])
+        self.assertFalse(s.status()['all_clear'])
+        self.assertTrue(any(t.kind=='verify' for t in s._service_tasks((0.0,0.0),[])))
+
     def test_relocated_scans_use_identity_not_coordinates(self):
         sim=OfflineSimulator(WorldCases([],1))
         sim.enter()

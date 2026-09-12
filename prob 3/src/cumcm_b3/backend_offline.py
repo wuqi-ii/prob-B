@@ -19,7 +19,7 @@ from __future__ import annotations
 import hashlib
 import math
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from .config import (
@@ -239,10 +239,11 @@ class OfflineSimulator(DogBackend):
         move_cost = self._move(x, y)
         self._requests += 1
         source = self._source_of(channel)
-        hit = False
-        if source is not None and not source.cleared:
-            if math.hypot(source.x - x, source.y - y) <= CLEAR_RADIUS_M:
-                hit = True
+        hit = (
+            source is not None
+            and not source.cleared
+            and math.hypot(source.x - x, source.y - y) <= CLEAR_RADIUS_M
+        )
         cost = CLEAR_HIT_COST_S if hit else CLEAR_MISS_COST_S
         self._virtual_time += cost
         if hit:

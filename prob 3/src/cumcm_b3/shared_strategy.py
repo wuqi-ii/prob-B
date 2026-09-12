@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from . import geometry
 from .config import ARENA_RADIUS_M, BEARING_ERROR_DEG, RECEIVER_MAX_M
 from .experimental_strategy import ExperimentalStrategy
+from .second_station import certifies_reusable_station
 from .strategy import Task
 
 
@@ -81,7 +82,33 @@ class SharedStrategy(ExperimentalStrategy):
         # Benefit proxy in metres; six seconds of sensing costs 30 m of travel.
         return max(0.0, before-after-30.0)
 
+    def _reuse_actual_stop(self, point, exclude=None):
+        # 只在机器狗已经真实到达的停靠点做硬保证复用。不能提前绑定
+        # 未来 clear 任务的质心，因为新增观测会使该坐标在执行前变化。
+        if not self.cfg.planned_stop_reuse:
+            return
+        for ch in self.book.known_channels():
+            if ch == exclude:
+                continue
+            tr = self.book[ch]
+            if len(tr.observations) != 1 or tr.near_points:
+                continue
+            if any(math.dist(point, old) < 1.0 for old, _ in tr.observations):
+                continue
+            if any(math.dist(point, old) < 1.0 for old in tr.no_signal_points):
+                continue
+            station, bearing = tr.observations[0]
+            safe, far = certifies_reusable_station(point, station, bearing, self.cfg)
+            if not safe or self._budget_exhausted({}):
+                continue
+            payload = self.backend.measure(*point, ch)
+            kind = self.book.apply_measure(ch, point, payload)
+            self._log('verify_reuse', channel=ch, at=list(point), result=kind,
+                      reuse_source='actual_stop', second_far_m=far,
+                      boundary_clipped=far < self.cfg.second_station_far_m - 1e-7)
+
     def _opportunistic_pass(self, point, exclude=None):
+        self._reuse_actual_stop(point, exclude)
         if self.cfg.shared_observations == 'off':
             return super()._opportunistic_pass(point, exclude)
         candidates = [(self._gain(ch, point), ch) for ch in self.book.known_channels() if ch != exclude]

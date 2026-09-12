@@ -34,7 +34,8 @@ class TestStrictJsonArtifacts(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp(prefix="strict_json_"))
 
     def test_effective_config_is_strict_json(self):
-        record = StrategyConfig().to_dict()
+        cfg = StrategyConfig()
+        record = cfg.to_dict()
         record["robot_id"] = "***"          # 与 run_drill 的脱敏写法一致
         self.assertEqual(record["virtual_time_budget_s"], float("inf"))
 
@@ -42,10 +43,11 @@ class TestStrictJsonArtifacts(unittest.TestCase):
         write_json(path, record)
         parsed = _strict_load(path.read_text(encoding="utf-8"))
         self.assertIsNone(parsed["virtual_time_budget_s"], "inf 必须写成 null")
-        self.assertEqual(parsed["scan_inner_radius_m"], 980.0)
-        self.assertEqual(parsed["scan_outer_radius_m"], 1840.0)
-        self.assertEqual(parsed["scan_inner_count"], 8)
-        self.assertEqual(parsed["scan_outer_count"], 18)
+        # 与默认配置的包围网参数逐一对应（不绑定具体点数，改布局不会误断）
+        self.assertEqual(parsed["scan_inner_radius_m"], cfg.scan_inner_radius_m)
+        self.assertEqual(parsed["scan_outer_radius_m"], cfg.scan_outer_radius_m)
+        self.assertEqual(parsed["scan_inner_count"], cfg.scan_inner_count)
+        self.assertEqual(parsed["scan_outer_count"], cfg.scan_outer_count)
 
     def test_drill_index_line_is_strict_jsonl(self):
         path = self.tmp / "drill_index.jsonl"

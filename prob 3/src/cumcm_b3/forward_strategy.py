@@ -8,11 +8,23 @@ from .strategy import Task
 
 
 class ForwardStrategy(SharedStrategy):
+    def _all_sources_known(self):
+        return (self.cfg.stop_search_when_all_sources_known
+                and sum(tr.known for tr in self.book.tracks.values()) >= SOURCE_COUNT_MAX)
+
+    def _scan_tasks(self):
+        if self._all_sources_known():
+            return []
+        return super()._scan_tasks()
+
     def _upper_bound_complete(self):
         return self.cfg.stop_at_source_upper_bound and self.book.count_cleared() >= SOURCE_COUNT_MAX
 
     def status(self):
         state=super().status()
+        if self._all_sources_known():
+            state['unvisited_scan_points']=[]
+            state['completion_basis']='all_source_channels_discovered'
         if self._upper_bound_complete():
             state['all_clear']=True
             state['completion_basis']='cleared_source_count_upper_bound'
@@ -33,7 +45,9 @@ class ForwardStrategy(SharedStrategy):
         point=min((pair.left,pair.right),key=lambda p:math.dist(self._pos(),p))
         before=len(tr.observations)
         self._log('recovery_verify',channel=ch,at=list(point),attempt=counts[ch])
-        self._do_verify(Task('verify',point,ch,note='recovery_standard'))
+        self._do_verify(Task('verify',point,ch,note='recovery_standard',
+                             second_far_m=pair.effective_far_m,
+                             boundary_clipped=pair.boundary_clipped))
         if len(tr.observations)>before or tr.near_points:
             self._give_up.discard(ch)
 
@@ -58,7 +72,9 @@ class ForwardStrategy(SharedStrategy):
                 point = tuple(a+fraction*(b-a) for a,b in zip(station, full))
                 if any(math.dist(point,p)<1 for p,_ in track.observations):
                     continue
-                task = Task('verify', full, track.channel, note='adaptive_verify', near_point=point)
+                task = Task('verify', full, track.channel, note='adaptive_verify', near_point=point,
+                            second_far_m=pair.effective_far_m,
+                            boundary_clipped=pair.boundary_clipped)
                 downstream = []
                 for target in samples:
                     distance = math.dist(point, target)

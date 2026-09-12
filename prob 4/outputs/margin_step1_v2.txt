@@ -1,0 +1,11 @@
+p22 8/990/13/1854      step1= 989.179 margin=  10.82 OK
+p23 8/980/14/1848      step1= 984.647 margin=  15.35 OK
+Traceback (most recent call last):
+  File "<string>", line 9, in <module>
+    v = coverage_worst_required_radius(cfg, step_m=1.0)
+  File "C:\Users\ASUS\Desktop\math\prob 4\src\cumcm_b4\coverage.py", line 111, in coverage_worst_required_radius
+    required = required_radius_at_position((gx, gy), pts)
+  File "C:\Users\ASUS\Desktop\math\prob 4\src\cumcm_b4\coverage.py", line 132, in required_radius_at_position
+    polar.append((distance, math.atan2(dy, dx) % (2.0 * math.pi)))
+                                                  ~~~~^~~~~~~~~
+TypeError: unsupported operand type(s) for *: 'list_iterator' and 'float'

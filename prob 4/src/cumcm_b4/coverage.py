@@ -43,6 +43,20 @@ from .config import (
 
 Point = Tuple[float, float]
 
+# 热循环里对 math.* 的属性查找既慢又脆弱（曾观测到解释器层面 math.pi 被异常
+# 解析为 list_iterator 的罕见异常，导致 coverage_worst_required_radius 崩溃）。
+# 在导入期一次性取出，等价且更快。
+_PI = math.pi
+_TAU = 2.0 * math.pi
+_COS = math.cos
+_SIN = math.sin
+_HYPOT = math.hypot
+_ATAN2 = math.atan2
+_RADIANS = math.radians
+_DEGREES = math.degrees
+_ACOS = math.acos
+_INF = math.inf
+
 
 def scan_points(cfg: StrategyConfig) -> List[Point]:
     """包围网扫描点：原点 + 内环 n1 点 + 外环 n2 点。
@@ -52,16 +66,17 @@ def scan_points(cfg: StrategyConfig) -> List[Point]:
     """
     points: List[Point] = [(0.0, 0.0)]
     for k in range(cfg.scan_inner_count):
-        ang = 2.0 * math.pi * k / cfg.scan_inner_count
+        ang = _TAU * k / cfg.scan_inner_count
         points.append(
-            (cfg.scan_inner_radius_m * math.cos(ang), cfg.scan_inner_radius_m * math.sin(ang))
+            (cfg.scan_inner_radius_m * _COS(ang), cfg.scan_inner_radius_m * _SIN(ang))
         )
-    phase = math.pi / cfg.scan_outer_count  # 外环错开半个间隔
+    phase = _PI / cfg.scan_outer_count  # 外环错开半个间隔
     for k in range(cfg.scan_outer_count):
-        ang = phase + 2.0 * math.pi * k / cfg.scan_outer_count
+        ang = phase + _TAU * k / cfg.scan_outer_count
         points.append(
-            (cfg.scan_outer_radius_m * math.cos(ang), cfg.scan_outer_radius_m * math.sin(ang))
+            (cfg.scan_outer_radius_m * _COS(ang), cfg.scan_outer_radius_m * _SIN(ang))
         )
+    points.extend(getattr(cfg, "scan_extra_points", ()) or ())
     return points
 
 
@@ -79,10 +94,10 @@ def _in_wedge(point: Point, source: Point, direction_deg: float,
     vx, vy = px - gx, py - gy
     if vx == 0.0 and vy == 0.0:
         return True  # 检测点与源重合
-    rad = math.radians(direction_deg)
-    dx, dy = math.cos(rad), math.sin(rad)
-    cosang = (vx * dx + vy * dy) / math.hypot(vx, vy)
-    return math.degrees(math.acos(max(-1.0, min(1.0, cosang)))) <= half_angle_deg + 1e-9
+    rad = _RADIANS(direction_deg)
+    dx, dy = _COS(rad), _SIN(rad)
+    cosang = (vx * dx + vy * dy) / _HYPOT(vx, vy)
+    return _DEGREES(_ACOS(max(-1.0, min(1.0, cosang)))) <= half_angle_deg + 1e-9
 
 
 def coverage_worst_required_radius(
@@ -90,33 +105,63 @@ def coverage_worst_required_radius(
     step_m: float = 40.0,
     ang_step_deg: float = 3.0,
 ) -> float:
-    """数值搜索：最坏情形下需要多大接收半径才能保证不漏。
+    """位置网格搜索：最坏情形下需要多大接收半径才能保证不漏。
 
-    对目标区域内的源位置做网格采样、对朝向做角度采样，对每个 (位置, 朝向) 求
-    「落在覆盖楔内的扫描点到源的最小距离」，再取全场景最大值。这个最大值就是
-    "要保证一个不漏所必需的最小接收半径"，必须 <= 1000 m。
+    对每个采样源位置，不再离散枚举朝向。扫描点按距离逐个加入；当这些点相对
+    源的极角最大空隙不超过 180° 时，源恰好落入局部扫描点凸包，因此所有可能
+    朝向的半平面内都至少有一个点。首次满足该条件的距离就是该位置所需半径。
+
+    ``ang_step_deg`` 仅为兼容旧调用保留，当前算法对朝向做精确判定。位置仍采用
+    网格搜索，因此最终表述应保留“位置细网格校核”，不能冒充连续域严格证明。
     """
     pts = scan_points(cfg)
     worst = 0.0
     r = 0.0
     while r <= ARENA_RADIUS_M + 1e-9:
-        circumference = 2.0 * math.pi * max(r, 1.0)
+        circumference = _TAU * max(r, 1.0)
         count = max(8, int(circumference / step_m))
         for k in range(count):
-            th = 2.0 * math.pi * k / count
-            gx, gy = r * math.cos(th), r * math.sin(th)
-            for j in range(int(360.0 / ang_step_deg)):
-                direction = j * ang_step_deg
-                best = math.inf
-                for px, py in pts:
-                    if _in_wedge((px, py), (gx, gy), direction):
-                        d = math.hypot(px - gx, py - gy)
-                        if d < best:
-                            best = d
-                if best < math.inf and best > worst:
-                    worst = best
+            th = _TAU * k / count
+            gx, gy = r * _COS(th), r * _SIN(th)
+            required = required_radius_at_position((gx, gy), pts)
+            if required > worst:
+                worst = required
         r += step_m
     return worst
+
+
+def required_radius_at_position(source: Point, points: List[Point]) -> float:
+    """对固定源位置，精确求覆盖任意朝向所需的最小接收半径。
+
+    半平面覆盖等价于源位于接收半径内扫描点的凸包中。把扫描点看成以源为原点
+    的向量后，这又等价于其极角不存在大于 180° 的循环空隙。按距离从近到远
+    加点，第一次满足该角度条件时的距离即为答案。
+    """
+    gx, gy = source
+    polar = []
+    for px, py in points:
+        dx, dy = px - gx, py - gy
+        distance = _HYPOT(dx, dy)
+        if distance <= 1e-12:
+            return 0.0
+        polar.append((distance, _ATAN2(dy, dx) % _TAU))
+    polar.sort(key=lambda item: item[0])
+
+    active_angles: List[float] = []
+    index = 0
+    while index < len(polar):
+        distance = polar[index][0]
+        while index < len(polar) and abs(polar[index][0] - distance) <= 1e-9:
+            active_angles.append(polar[index][1])
+            index += 1
+        if len(active_angles) < 2:
+            continue
+        angles = sorted(active_angles)
+        gaps = [angles[i + 1] - angles[i] for i in range(len(angles) - 1)]
+        gaps.append(angles[0] + _TAU - angles[-1])
+        if max(gaps) <= _PI + 1e-12:
+            return distance
+    return _INF
 
 
 def grid_verify(cfg: StrategyConfig, step_m: float = 40.0,

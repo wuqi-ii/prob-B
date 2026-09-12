@@ -1,0 +1,17 @@
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+exclude = [".git", ".ruff_cache", "__pycache__", "outputs", "logs"]
+
+[tool.ruff.lint]
+# 只启用"真问题"类规则：未定义/未使用、语法错误、常见陷阱、可简化写法。
+# 刻意不启用 E501（行宽）等纯风格规则。
+select = ["F", "E9", "B", "SIM"]
+ignore = [
+    # zip(strict=) 需要 Python 3.10+；本项目声明兼容 3.9。
+    "B905",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# 测试里的 mock / 假后端需要保持与被替换对象一致的签名，允许存在未使用参数。
+"tests/*" = ["ARG002", "ARG005"]

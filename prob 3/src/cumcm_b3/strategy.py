@@ -21,7 +21,6 @@
 
 from __future__ import annotations
 
-import json
 import itertools
 import math
 import time
@@ -30,14 +29,11 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from . import geometry
 from .config import (
-    ARENA_RADIUS_M,
-    BEARING_ERROR_DEG,
     CLEAR_RADIUS_M,
-    MEASURE_COST_S,
     StrategyConfig,
 )
 from .coverage import scan_points
-from .second_station import candidate_pair
+from .second_station import candidate_pair, fixed_candidate_pair
 from .tracker import TrackBook
 
 Point = Tuple[float, float]
@@ -54,6 +50,8 @@ class Task:
     channel: Optional[int] = None
     note: str = ""
     near_point: Optional[Point] = None   # 验证任务：先试的近端候选点（失败则回退到 point）
+    second_far_m: Optional[float] = None # 动态第二点使用的 R；非验证任务为空
+    boundary_clipped: bool = False
 
     @property
     def key(self) -> str:
@@ -97,7 +95,6 @@ class DogStrategy:
         self.visited_scan: List[bool] = [False] * len(self.scan_points)
         self.book = TrackBook(list(range(1, 21)))
         self.stats = RunStats()
-        self._verified_task_keys: set = set()
         self._clear_attempts: Dict[int, int] = {}   # 每频道已尝试清除次数
         self._give_up: set = set()                  # 超过尝试上限后放弃的频道
         self._real_start = 0.0
@@ -170,9 +167,7 @@ class DogStrategy:
             return True
         if self.backend.virtual_time_s >= cfg.virtual_time_budget_s:
             return True
-        if self.backend.request_count >= cfg.max_requests:
-            return True
-        return False
+        return self.backend.request_count >= cfg.max_requests
 
     # ---------------- 任务生成与选择 ----------------
     def _scan_tasks(self) -> List[Task]:
@@ -226,23 +221,30 @@ class DogStrategy:
         first_point, bearing = track.observations[0]
         pair = candidate_pair(first_point, bearing, cfg)
         spine = self._shortest_scan_spine(cur, scans)
+        pairs = [("dynamic", pair)]
+        if cfg.dynamic_second_station and pair.effective_far_m < cfg.second_station_far_m - 1e-7:
+            # P*(R) minimizes the isolated S1->P2 objective. In problem 3 the
+            # point is embedded in a multi-stop route, so retain the original
+            # P*(1500) as an alternative and let route insertion choose.
+            pairs.append(("fixed", fixed_candidate_pair(first_point, bearing, cfg)))
         options: List[Task] = []
-        for label, full in (("left", pair.left), ("right", pair.right)):
-            near = None
-            if 0.0 < cfg.verify_near_fraction < 1.0:
-                f = cfg.verify_near_fraction
-                near = (first_point[0] + (full[0] - first_point[0]) * f,
-                        first_point[1] + (full[1] - first_point[1]) * f)
-            options.append(Task("verify", full, track.channel,
-                                note=f"pair:{label}", near_point=near))
-
-        if cfg.scheduler_mode == "nearest":
-            return min(options, key=lambda task: math.dist(cur, task.execution_point))
+        for mode, item in pairs:
+            for label, full in (("left", item.left), ("right", item.right)):
+                near = None
+                if 0.0 < cfg.verify_near_fraction < 1.0:
+                    f = cfg.verify_near_fraction
+                    near = (first_point[0] + (full[0] - first_point[0]) * f,
+                            first_point[1] + (full[1] - first_point[1]) * f)
+                options.append(Task("verify", full, track.channel,
+                                    note=f"pair:{mode}:{label}", near_point=near,
+                                    second_far_m=item.effective_far_m,
+                                    boundary_clipped=item.boundary_clipped))
 
         def detour(task: Task) -> float:
+            if cfg.scheduler_mode == "nearest":
+                return math.dist(cur, task.execution_point)
             return min(self._insertion_delta(cur, spine, task, pos)
                        for pos in range(len(spine) + 1))
-
         return min(options, key=detour)
 
     def _service_tasks(self, cur: Point, scans: Sequence[Task]) -> List[Task]:
@@ -317,15 +319,26 @@ class DogStrategy:
         p = self.scan_points[idx]
         channels = [
             ch for ch in range(1, 21)
-            if not self.book[ch].cleared
+            if not self.book[ch].cleared and (
+                self.cfg.scan_all_channels_at_scan_points
+                or not self.book[ch].known
+                or (len(self.book[ch].observations) == 1
+                    and not self.book[ch].near_points)
+            )
         ]
+        measured = 0
         for ch in channels:
+            if (self.cfg.stop_search_when_all_sources_known
+                    and sum(tr.known for tr in self.book.tracks.values()) >= 16
+                    and not self.book[ch].known):
+                continue
             payload = self.backend.measure(p[0], p[1], ch)
+            measured += 1
             kind = self.book.apply_measure(ch, p, payload)
             if kind != "no_signal":
                 self._log("discover", channel=ch, at=list(p), kind=kind)
         self.visited_scan[idx] = True
-        self._log("scan_done", point=list(p), index=idx, channels=len(channels),
+        self._log("scan_done", point=list(p), index=idx, channels=measured,
                   found=[ch for ch in channels if self.book[ch].known])
 
     def _do_verify(self, task: Task) -> None:
@@ -343,7 +356,8 @@ class DogStrategy:
             payload = self.backend.measure(p[0], p[1], ch)
             kind = self.book.apply_measure(ch, p, payload)
             self._log("verify_near", channel=ch, at=[round(p[0], 1), round(p[1], 1)],
-                      result=kind)
+                      result=kind, second_far_m=task.second_far_m,
+                      boundary_clipped=task.boundary_clipped)
             if kind != "no_signal":
                 self._opportunistic_pass(p, exclude=ch)
                 return
@@ -353,7 +367,8 @@ class DogStrategy:
         payload = self.backend.measure(p[0], p[1], ch)
         kind = self.book.apply_measure(ch, p, payload)
         self._log("verify", channel=ch, at=[round(p[0], 1), round(p[1], 1)],
-                  result=kind)
+                  result=kind, second_far_m=task.second_far_m,
+                  boundary_clipped=task.boundary_clipped)
         self._opportunistic_pass(p, exclude=ch)
 
     def _do_clear(self, task: Task) -> None:
@@ -430,6 +445,7 @@ class DogStrategy:
                 # 未命中说明观测被误差带偏：在原位补一次观测再试
                 payload = self.backend.measure(centroid[0], centroid[1], ch)
                 kind = self.book.apply_measure(ch, centroid, payload)
+                self._reuse_actual_stop(centroid, exclude=ch)
                 if kind == "near":
                     res = self.backend.clear(centroid[0], centroid[1], ch)
                     self.stats.clear_attempts += 1
@@ -452,6 +468,7 @@ class DogStrategy:
                       at=[round(target[0], 1), round(target[1], 1)],
                       worst=round(worst, 1) if math.isfinite(worst) else -1,
                       result=kind)
+            self._reuse_actual_stop(target, exclude=ch)
             if kind == "near":
                 res = self.backend.clear(target[0], target[1], ch)
                 self.stats.clear_attempts += 1
@@ -492,6 +509,10 @@ class DogStrategy:
             kind = self.book.apply_measure(ch, point, payload)
             self._log("opportunistic", channel=ch, result=kind)
             done += 1
+
+    def _reuse_actual_stop(self, point: Point, exclude: Optional[int] = None) -> None:
+        """子类实验钩子：在已经发生移动的停靠点原地复用，不增加行程。"""
+        return None
 
     # ---------------- 终止条件的可解释输出 ----------------
     def status(self) -> Dict[str, Any]:

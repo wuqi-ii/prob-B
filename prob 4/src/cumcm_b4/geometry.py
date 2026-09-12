@@ -21,6 +21,18 @@ Polygon = List[Point]
 
 DIST_TOL = 1e-9
 
+# 热循环中的 math.* 属性查找提升为模块级常量（与 coverage.py 同样的加固）。
+# 历史观测到极罕见的「math 属性在热循环中被篡改」型 TypeError
+# （'float' object is not callable / 'list_iterator' and 'float'），
+# 见 RESULTS.md 6.4；提升后崩溃点不复存在，且省去重复属性查找。
+_DIST = math.dist
+_SQRT = math.sqrt
+_SIN = math.sin
+_COS = math.cos
+_RADIANS = math.radians
+_HYPOT = math.hypot
+_PI = math.pi
+
 
 # --------------------------------------------------------------------------
 # 凸多边形基本操作
@@ -31,9 +43,9 @@ def clean_polygon(vertices: Sequence[Point], tol: float = DIST_TOL) -> Polygon:
     out: Polygon = []
     for p in vertices:
         p = (float(p[0]), float(p[1]))
-        if not out or math.dist(p, out[-1]) > tol:
+        if not out or _DIST(p, out[-1]) > tol:
             out.append(p)
-    if len(out) > 1 and math.dist(out[0], out[-1]) <= tol:
+    if len(out) > 1 and _DIST(out[0], out[-1]) <= tol:
         out.pop()
     return out
 
@@ -58,7 +70,7 @@ def convex_hull(points: Sequence[Point], tol: float = 1e-9) -> Polygon:
     ordered = sorted(set((float(p[0]), float(p[1])) for p in points))
     ps: Polygon = []
     for p in ordered:
-        if not ps or math.dist(p, ps[-1]) > tol:
+        if not ps or _DIST(p, ps[-1]) > tol:
             ps.append(p)
     if len(ps) <= 2:
         return ps
@@ -134,8 +146,8 @@ def disk_outer_polygon(radius: float, sides: int = 64) -> Polygon:
         raise ValueError("radius 必须为正，sides 至少为 8")
     poly = _bounding_box(2.0 * radius)
     for k in range(sides):
-        angle = 2.0 * math.pi * k / sides
-        nx, ny = math.cos(angle), math.sin(angle)
+        angle = 2.0 * _PI * k / sides
+        nx, ny = _COS(angle), _SIN(angle)
         poly = clip_halfplane(poly, nx, ny, radius)
         if len(poly) < 3:
             break
@@ -157,15 +169,15 @@ def clip_wedge(
     if not 0 < half_angle_deg < 90:
         raise ValueError("half_angle_deg 必须位于 (0, 90)")
     px, py = station
-    lo = math.radians(bearing_deg - half_angle_deg)
-    hi = math.radians(bearing_deg + half_angle_deg)
+    lo = _RADIANS(bearing_deg - half_angle_deg)
+    hi = _RADIANS(bearing_deg + half_angle_deg)
     # (a) cross(d_lo, X-P) >= 0  <=>  sin(lo)*X - cos(lo)*Y <= sin(lo)*px - cos(lo)*py
-    nx, ny = math.sin(lo), -math.cos(lo)
+    nx, ny = _SIN(lo), -_COS(lo)
     out = clip_halfplane(poly, nx, ny, nx * px + ny * py)
     if not out:
         return out
     # (b) cross(d_hi, X-P) <= 0  <=> -sin(hi)*X + cos(hi)*Y <= -sin(hi)*px + cos(hi)*py
-    nx, ny = -math.sin(hi), math.cos(hi)
+    nx, ny = -_SIN(hi), _COS(hi)
     return clip_halfplane(out, nx, ny, nx * px + ny * py)
 
 
@@ -185,8 +197,8 @@ def clip_max_radius(poly: Sequence[Point], station: Point, radius: float, sides:
     out = ensure_ccw(poly)
     px, py = station
     for k in range(sides):
-        angle = 2.0 * math.pi * k / sides
-        nx, ny = math.cos(angle), math.sin(angle)
+        angle = 2.0 * _PI * k / sides
+        nx, ny = _COS(angle), _SIN(angle)
         out = clip_halfplane(out, nx, ny, radius + nx * px + ny * py)
         if len(out) < 3:
             return []
@@ -235,7 +247,7 @@ def diameter_bruteforce(poly: Sequence[Point]) -> Tuple[float, Tuple[Point, Poin
             d = (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2
             if d > best:
                 best, pair = d, (a, b)
-    return math.sqrt(best), pair
+    return _SQRT(best), pair
 
 
 def diameter(poly: Sequence[Point]) -> Tuple[float, Tuple[Point, Point]]:
@@ -261,14 +273,14 @@ def diameter(poly: Sequence[Point]) -> Tuple[float, Tuple[Point, Point]]:
                 d = (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2
                 if d > best:
                     best, pair = d, (a, b)
-    return math.sqrt(best), pair
+    return _SQRT(best), pair
 
 
 def max_distance_from(point: Point, poly: Sequence[Point]) -> float:
     """点到多边形各顶点的最大距离——这是「距真源最坏情况」的安全上界。"""
     if not poly:
         return float("inf")
-    return max(math.dist(point, p) for p in poly)
+    return max(_DIST(point, p) for p in poly)
 
 
 def polygon_area(poly: Sequence[Point]) -> float:
@@ -278,7 +290,7 @@ def polygon_area(poly: Sequence[Point]) -> float:
 def point_along(start: Point, target: Point, distance: float) -> Point:
     """从 start 指向 target 的方向上前进 distance 米后的点。"""
     dx, dy = target[0] - start[0], target[1] - start[1]
-    length = math.hypot(dx, dy)
+    length = _HYPOT(dx, dy)
     if length <= 1e-12 or distance <= 0:
         return (float(start[0]), float(start[1]))
     ratio = min(1.0, distance / length)

@@ -1,0 +1,37 @@
+{
+  "experiment": "scheduler paired A/B",
+  "seed_start": 21000,
+  "cases": 200,
+  "constraints": {
+    "scan_ring_radius_m": 1150.0,
+    "coverage_gap_tolerance_m": 0.0,
+    "worst_coverage_distance_m": 988.5114204360128,
+    "verify_near_fraction": 0.4
+  },
+  "nearest": {
+    "scheduler_mode": "nearest",
+    "perfect_cases": 200,
+    "total_sources": 2608,
+    "total_cleared": 2608,
+    "mean_total_time_s": 3561.5423321501166,
+    "mean_requests": 155.35
+  },
+  "route_insert": {
+    "scheduler_mode": "route_insert",
+    "perfect_cases": 200,
+    "total_sources": 2608,
+    "total_cleared": 2608,
+    "mean_total_time_s": 3486.411750031193,
+    "mean_requests": 158.495
+  },
+  "paired_comparison": {
+    "mean_delta_s": -75.13058211892337,
+    "mean_delta_percent": -2.1094956935010445,
+    "median_case_delta_percent": -1.9936119185820176,
+    "route_insert_faster_cases": 126,
+    "route_insert_slower_cases": 74,
+    "mean_request_delta": 3.145,
+    "approx_95_percent_ci_delta_s": [-106.63784331605524, -43.6233209217915]
+  },
+  "real_simulator_used": false
+}

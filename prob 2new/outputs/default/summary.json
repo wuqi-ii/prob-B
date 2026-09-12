@@ -1,0 +1,277 @@
+{
+  "name": "default",
+  "config": {
+    "name": "default",
+    "first_station_m": [
+      0.0,
+      0.0
+    ],
+    "first_bearing_deg": 0.0,
+    "map_center_m": [
+      0.0,
+      0.0
+    ],
+    "map_radius_m": 1800.0,
+    "use_map_boundary": true,
+    "bearing_error_deg": 1.0,
+    "max_reception_m": 1500.0,
+    "source_far_m": null,
+    "guaranteed_reception_m": 1000.0,
+    "min_crossing_deg": 30.0,
+    "speed_m_s": 5.0,
+    "detection_time_s": 5.0,
+    "weight_lambda": 5.0,
+    "lambda_mode": "normalized",
+    "weight_multipliers": [
+      0.25,
+      0.5,
+      1.0,
+      2.0,
+      4.0
+    ],
+    "sensitivity_weights": [],
+    "grid_step_m": 10.0,
+    "bearing_samples": 81,
+    "local_starts_per_side": 3,
+    "circle_sides": 720,
+    "certificate_tolerance_m": 0.05,
+    "certificate_max_splits": 4096,
+    "random_seed": 20260911,
+    "tail_weight": 0.5,
+    "cvar_alpha": 0.9,
+    "n_scenarios": 400,
+    "source_min_radius_m": 5.0,
+    "scenario_seed": 0,
+    "antithetic_mirror": true,
+    "simplify_tolerance_m": 0.02,
+    "refine_steps_m": [
+      25.0,
+      10.0,
+      4.0
+    ],
+    "refine_budget": 80
+  },
+  "local_frame": {
+    "origin": [
+      0.0,
+      0.0
+    ],
+    "x_axis_bearing_deg": 0.0,
+    "note": "local x along the first measured bearing, y to its left"
+  },
+  "source_region": {
+    "vertices_full": 7,
+    "vertices_used": 7,
+    "diameter_full_m": 1500.0142790548246,
+    "diameter_used_m": 1501.1802421146663,
+    "diameter_change_m": 1.1659630598417152,
+    "simplify_tolerance_m": 0.02,
+    "note": "simplification widens the polygon outward, so it stays conservative"
+  },
+  "scenarios": {
+    "count": 800,
+    "seed": 20260911,
+    "attempts": 400,
+    "rejected_by_map": 0,
+    "radius_min_m": 67.8456218152979,
+    "radius_max_m": 1499.905853509994,
+    "radius_mean_m": 995.4306575333953,
+    "error_min_deg": -0.9969053466416187,
+    "error_max_deg": 0.9969053466416187,
+    "uniform_weights": true,
+    "weight_min": 0.00125,
+    "weight_max": 0.00125,
+    "weight_note": "uniform: the sample is mirror symmetric or mirroring is off"
+  },
+  "candidate_region": {
+    "parameter_R_m": 1500.0,
+    "h_R_m": 26.18259739232638,
+    "constraints": [
+      "a>=0",
+      "a^2+b^2<=rho^2",
+      "(a-R)^2+(|b|+h(R))^2<=rho^2",
+      "|b|>=t*a",
+      "|b|>=t*(R-a)+h(R)"
+    ],
+    "grid_step_m": 10.0,
+    "evaluated_points": 524,
+    "uniform_diameter_bound_m": 168.83479996318715
+  },
+  "lambda": {
+    "lambda0": 8.338253577354509,
+    "delta_distance_m": 150.1933511659488,
+    "delta_composite_m": 18.01256699290751,
+    "pareto_points": 111,
+    "note": "equal normalised weight on the Pareto ranges",
+    "ranking": "normalized",
+    "degenerate_distance": false,
+    "degenerate_composite": false,
+    "basis": "Pareto set",
+    "base_weight": 8.338253577354509,
+    "mode": "normalized"
+  },
+  "final": {
+    "point_local_m": [
+      764.0,
+      526.0
+    ],
+    "point_global_m": [
+      764.0,
+      526.0
+    ],
+    "distance_m": 927.5623968229846,
+    "travel_time_s": 185.5124793645969,
+    "mean_diameter_m": 65.67281925533538,
+    "cvar_diameter_m": 117.4992634409762,
+    "max_diameter_m": 124.01871072181169,
+    "composite_m": 91.58604134815579,
+    "cost_s": 343.2460067459965,
+    "detection_time_s": 5.0,
+    "tie_rule": "tie window picks the +y lobe; inside a lobe the lowest cost wins"
+  },
+  "checks": {
+    "slacks_m": {
+      "forward": 764.0,
+      "near_vertex_reception": 72.43760317701538,
+      "far_vertex_reception": 79.89042996883461,
+      "angle_near": 66.94248706294388,
+      "angle_far": 57.58398700338916
+    },
+    "min_slack_m": 57.58398700338916,
+    "max_distance_to_triangle_m": 927.5623968229846,
+    "max_distance_to_source_outer_polygon_m": 927.5623968229846,
+    "min_distance_lower_bound_m": 499.8174026076736,
+    "min_measured_acute_angle_deg": 33.18041550538891,
+    "uniform_diameter_upper_bound_m": 168.83479996318715,
+    "reception_guaranteed": true,
+    "angle_guaranteed": true,
+    "strong_signal_blind_zone_excluded": true,
+    "candidate_feasible": true,
+    "worst_case_audit": {
+      "lower_m": 124.26329677322302,
+      "upper_m": 124.31229405428284,
+      "worst_bearing_rad": -0.6612567040239492,
+      "polygon": [
+        [
+          1431.594684409573,
+          24.988578167260258
+        ],
+        [
+          1386.1767130966712,
+          24.195804529085635
+        ],
+        [
+          1447.5037250412233,
+          -25.26627150443137
+        ],
+        [
+          1499.7715427345868,
+          -26.178609655925268
+        ],
+        [
+          1499.771582940588,
+          -26.176306255658016
+        ]
+      ],
+      "diameter_pair": [
+        [
+          1386.1767130966712,
+          24.195804529085635
+        ],
+        [
+          1499.7715427345868,
+          -26.178609655925268
+        ]
+      ],
+      "evaluations": 280,
+      "splits": 69,
+      "converged": true,
+      "gap_m": 0.04899728105982604,
+      "worst_bearing_deg_local": -37.88721831530373
+    },
+    "audit_within_uniform_bound": true
+  },
+  "independent_scenario_check": {
+    "scenarios": 800,
+    "seed": 20261911,
+    "mean_diameter_m": 64.24307983973077,
+    "cvar_diameter_m": 117.05276650395066,
+    "max_diameter_m": 123.9657241250159,
+    "composite_m": 90.64792317184072
+  },
+  "resolution_check": {
+    "circle_sides": 1440,
+    "vertices": 11,
+    "mean_diameter_m": 65.6267213090897,
+    "cvar_diameter_m": 117.43880687975239,
+    "composite_m": 91.53276409442105
+  },
+  "example_intersection": {
+    "hypothetical": true,
+    "source_local_m": [
+      1033.8711016024695,
+      16.844625106905287
+    ],
+    "error_deg": 0.7154940020243887,
+    "reading_deg_local": -61.35926880680715,
+    "acute_crossing_deg": 61.35926880680715,
+    "diameter_m": 57.29766523689488,
+    "polygon": [
+      [
+        1052.8359502537755,
+        18.397322917002192
+      ],
+      [
+        1030.0363255292073,
+        17.99935398709586
+      ],
+      [
+        1049.0625130368906,
+        -18.331457325378913
+      ],
+      [
+        1073.9828675963543,
+        -18.766443732248558
+      ]
+    ]
+  },
+  "sensitivity": [
+    {
+      "weight": 8.338253577354509,
+      "grid_point_local_m": [
+        760.0,
+        530.0
+      ],
+      "grid_cost_s": 343.251969146081,
+      "tie_candidates": 96,
+      "tie_rule": "tie window picks the +y lobe; inside a lobe the lowest cost wins",
+      "tie_tolerance_s": 0.343251969146081,
+      "point_local_m": [
+        764.0,
+        526.0
+      ],
+      "cost_s": 343.2460067459965,
+      "refine_evaluations": 29,
+      "refine_improved": true,
+      "distance_m": 927.5623968229846,
+      "mean_diameter_m": 65.67281925533538,
+      "cvar_diameter_m": 117.4992634409762,
+      "max_diameter_m": 124.01871072181169,
+      "composite_m": 91.58604134815579,
+      "travel_time_s": 185.5124793645969,
+      "selection": "minimum evaluated cost on the fixed candidate region",
+      "multiplier": 1.0
+    }
+  ],
+  "runtime_s": 11.041932999999972,
+  "nearest_point_reference": {
+    "point_local_m": [
+      666.8144759063352,
+      526.8109671640482
+    ],
+    "distance_m": 849.8066488340512,
+    "mean_diameter_m": 71.94889784189267,
+    "cvar_diameter_m": 131.58358363568897,
+    "composite_m": 101.76624073879083
+  }
+}

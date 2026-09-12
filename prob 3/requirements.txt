@@ -1,0 +1,13 @@
+# B 题问题 3 —— 运行依赖
+#
+# 运行期零第三方依赖：src/ 与 scripts/ 只用 Python 标准库
+# （argparse / json / math / socket / threading / urllib / uuid / statistics ...）
+# 推荐 Python >= 3.9（使用 dataclasses、math.dist、list[str] 等）。
+#
+# 下面这些只在“辅助用途”下才需要，主流程安装与否都能跑：
+#   numpy        仅 scripts/ 中的网格化覆盖复核脚本使用（已被解析式替代，可选）
+#   python-docx  仅用于读取 ref/附件1.docx 的协议原文（一次性，非运行依赖）
+#
+# 如需全量复现文档中的次要校核，可取消下面两行的注释：
+# numpy>=1.24
+# python-docx>=1.1

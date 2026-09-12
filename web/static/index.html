@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>B 题模拟机连接台</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <p class="eyebrow">CUMCM 2026 · Problem B</p>
+        <h1>模拟机连接台</h1>
+        <p class="sub">本地代理连接官方服务，手动验证四个接口。不会自动启动任何测试。</p>
+      </div>
+      <div id="status" class="status unknown"><span></span>正在探测</div>
+    </header>
+
+    <section class="card setup">
+      <div>
+        <label for="robotId">当前登录队号</label>
+        <input id="robotId" autocomplete="off" placeholder="必须与模拟机完全一致">
+      </div>
+      <label class="confirm">
+        <input id="exercise" type="checkbox">
+        <span>我确认当前是“问题 3 演练测试”，不是正式测试</span>
+      </label>
+    </section>
+
+    <section class="grid">
+      <article class="card action-card">
+        <div class="number">01</div>
+        <h2>进入测试</h2>
+        <p>建立本次会话，并读取真实剩余时间。</p>
+        <button data-action="enter">发送 ENTER</button>
+      </article>
+
+      <article class="card action-card">
+        <div class="number">02</div>
+        <h2>测量</h2>
+        <div class="fields">
+          <label>X <input id="mx" type="number" value="0"></label>
+          <label>Y <input id="my" type="number" value="0"></label>
+          <label>通道 <input id="channel" type="number" min="1" max="20" value="1"></label>
+        </div>
+        <button data-action="measure">发送 MEASURE</button>
+      </article>
+
+      <article class="card action-card">
+        <div class="number">03</div>
+        <h2>清除</h2>
+        <div class="fields">
+          <label>X <input id="cx" type="number" value="0"></label>
+          <label>Y <input id="cy" type="number" value="0"></label>
+          <label>频道 <input id="clearChannel" type="number" min="1" max="20" value="1"></label>
+        </div>
+        <button data-action="clear">发送 CLEAR</button>
+      </article>
+
+      <article class="card action-card">
+        <div class="number">04</div>
+        <h2>退出测试</h2>
+        <p>正常结束当前会话，不增加虚拟时间。</p>
+        <button data-action="exit" class="secondary">发送 EXIT</button>
+      </article>
+    </section>
+
+    <section class="card console-card">
+      <div class="console-head"><h2>响应记录</h2><button id="clearLog" class="text-btn">清空显示</button></div>
+      <pre id="output">等待操作…</pre>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,760 @@
+[
+  {
+    "result": {
+      "case_id": "offline-99999",
+      "seed": 99999,
+      "total_sources": 10,
+      "cleared_count": 10,
+      "cleared_ratio": 1.0,
+      "total_time_s": 3448.3752875765385,
+      "mean_clear_time_s": 344.83752875765384,
+      "virtual_time_s": 3448.3752875765385,
+      "stop_reason": "all_done",
+      "requests": 160,
+      "clear_attempts": 10,
+      "clear_success": 10,
+      "clear_miss": 0,
+      "scan_points_visited": 7,
+      "real_elapsed_s": 0.11077690124511719,
+      "per_target_time_s": {
+        "12": 97.64779675110918,
+        "4": 189.65907764444137,
+        "17": 35.11331614516621,
+        "7": 174.37861189195087,
+        "8": 62.31823321107322,
+        "5": 42.77758410653769,
+        "14": 113.80334147467465,
+        "19": 109.74518708165351,
+        "10": 53.031633304585284,
+        "20": 161.59025928067422
+      }
+    },
+    "truth": [
+      {
+        "channel": 10,
+        "x": 621.94,
+        "y": -1255.6,
+        "radius": 1030.0,
+        "cleared": true
+      },
+      {
+        "channel": 17,
+        "x": -776.4,
+        "y": 690.13,
+        "radius": 1288.8,
+        "cleared": true
+      },
+      {
+        "channel": 8,
+        "x": -1604.99,
+        "y": -75.1,
+        "radius": 1357.0,
+        "cleared": true
+      },
+      {
+        "channel": 12,
+        "x": 735.15,
+        "y": -94.56,
+        "radius": 1160.8,
+        "cleared": true
+      },
+      {
+        "channel": 14,
+        "x": -211.72,
+        "y": -1600.08,
+        "radius": 1043.2,
+        "cleared": true
+      },
+      {
+        "channel": 4,
+        "x": 1018.24,
+        "y": 1030.04,
+        "radius": 1296.0,
+        "cleared": true
+      },
+      {
+        "channel": 5,
+        "x": -1713.94,
+        "y": -127.01,
+        "radius": 1326.3,
+        "cleared": true
+      },
+      {
+        "channel": 7,
+        "x": -1498.3,
+        "y": 939.21,
+        "radius": 1396.6,
+        "cleared": true
+      },
+      {
+        "channel": 19,
+        "x": -92.52,
+        "y": -1112.06,
+        "radius": 1251.6,
+        "cleared": true
+      },
+      {
+        "channel": 20,
+        "x": 399.78,
+        "y": -539.45,
+        "radius": 1202.3,
+        "cleared": true
+      }
+    ],
+    "events": [
+      {
+        "virtual_time_s": 0.0,
+        "event": "enter",
+        "max_virtual_duration_s": 360000.0,
+        "max_real_duration_s": 1200.0,
+        "remaining_real_duration_s": 1200.0,
+        "test_window_s": 1500.0
+      },
+      {
+        "virtual_time_s": 71.0,
+        "event": "discover",
+        "channel": 12,
+        "at": [
+          0.0,
+          0.0
+        ],
+        "kind": "direction"
+      },
+      {
+        "virtual_time_s": 101.0,
+        "event": "discover",
+        "channel": 17,
+        "at": [
+          0.0,
+          0.0
+        ],
+        "kind": "direction"
+      },
+      {
+        "virtual_time_s": 113.0,
+        "event": "discover",
+        "channel": 19,
+        "at": [
+          0.0,
+          0.0
+        ],
+        "kind": "direction"
+      },
+      {
+        "virtual_time_s": 119.0,
+        "event": "discover",
+        "channel": 20,
+        "at": [
+          0.0,
+          0.0
+        ],
+        "kind": "direction"
+      },
+      {
+        "virtual_time_s": 119.0,
+        "event": "scan_done",
+        "point": [
+          0.0,
+          0.0
+        ],
+        "index": 0,
+        "channels": 20,
+        "found": [
+          12,
+          17,
+          19,
+          20
+        ]
+      },
+      {
+        "virtual_time_s": 199.205,
+        "event": "verify_near",
+        "channel": 19,
+        "at": [
+          180.2,
+          -324.3
+        ],
+        "result": "direction"
+      },
+      {
+        "virtual_time_s": 230.608,
+        "event": "verify_near",
+        "channel": 12,
+        "at": [
+          279.1,
+          -244.5
+        ],
+        "result": "direction"
+      },
+      {
+        "virtual_time_s": 266.113,
+        "event": "verify_near",
+        "channel": 20,
+        "at": [
+          352.3,
+          -116.4
+        ],
+        "result": "direction"
+      },
+      {
+        "virtual_time_s": 272.113,
+        "event": "opportunistic",
+        "channel": 12,
+        "result": "direction"
+      },
+      {
+        "virtual_time_s": 345.495,
+        "event": "approach",
+        "channel": 12,
+        "at": [
+          693.6,
+          -95.8
+        ],
+        "worst": 53.5,
+        "result": "direction"
+      },
+      {
+        "virtual_time_s": 359.761,
+        "event": "approach",
+        "channel": 12,
+        "at": [
+          739.9,
+          -94.8
+        ],
+        "worst": 36.6,
+        "result": "near"
+      },
+      {
+        "virtual_time_s": 369.761,
+        "event": "post_clear_check",
+        "channel": 12,
+        "at": [
+          739.9,
+          -94.8
+        ],
+        "result": "no_signal"
+      },
+      {
+        "virtual_time_s": 369.761,
+        "event": "cleared",
+        "channel": 12,
+        "cost_s": 97.6,
+        "attempts": 1
+      },
+      {
+        "virtual_time_s": 477.946,
+        "event": "discover",
+        "channel": 4,
+        "at": [
+          1150.0,
+          0.0
+        ],
+        "kind": "direction"
+      },
+      {
+        "virtual_time_s": 567.946,
+        "event": "discover",
+        "channel": 20,
+        "at": [
+          1150.0,
+          0.0
+        ],
+        "kind": "direction"
+      },
+      {
+        "virtual_time_s": 567.946,
+        "event": "scan_done",
+        "point": [
+          1150.0,
+          0.0
+        ],
+        "index": 1,
+        "channels": 19,
+        "found": [
+          4,
+          17,
+          19,
+          20
+        ]
+      },
+      {
+        "virtual_time_s": 648.151,
+        "event": "verify_near",
+        "channel": 4,
+        "at": [
+          905.1,
+          278.7
+        ],
+        "result": "direction"
+      },
+      {
+        "virtual_time_s": 784.986,
+        "event": "approach",
+        "channel": 4,
+        "at": [
+          1009.6,
+          929.6
+        ],
+        "worst": 120.2,
+        "result": "direction"
+      },
+      {
+        "virtual_time_s": 815.384,
+        "event": "approach",
+        "channel": 4,
+        "at": [
+          1021.7,
+          1056.0
+        ],
+        "worst": 92.6,
+        "result": "direction"
+      },
+      {
+        "virtual_time_s": 826.649,
+        "event": "approach",
+        "channel": 4,
+        "at": [
+          1017.9,
+          1024.9
+        ],
+        "worst": 36.8,
+        "result": "direction"
+      },
+      {
+        "virtual_time_s": 837.81,
+        "event": "post_clear_check",
+        "channel": 4,
+        "at": [
+          1018.3,
+          1030.7
+        ],
+        "result": "no_signal"
+      },
+      {
+        "virtual_time_s": 837.81,
+        "event": "cleared",
+        "channel": 4,
+        "cost_s": 189.7,
+        "attempts": 1
+      },
+      {
+        "virtual_time_s": 1034.734,
+        "event": "scan_done",
+        "point": [
+          575.0000000000001,
+          995.9292143521044
+        ],
+        "index": 2,
+        "channels": 18,
+        "found": [
+          17,
+          19,
+          20
+        ]
+      },
+      {
+        "virtual_time_s": 1224.944,
+        "event": "verify_near",
+        "channel": 17,
+        "at": [
+          -91.0,
+          359.7
+        ],
+        "result": "direction"
+      },
+      {
+        "virtual_time_s": 1420.827,
+        "event": "discover",
+        "channel": 7,
+        "at": [
+          -574.9999999999998,
+          995.9292143521045
+        ],
+        "kind": "direction"
+      },
+      {
+        "virtual_time_s": 1474.827,
+        "event": "discover",
+        "channel": 17,
+        "at": [
+          -574.9999999999998,
+          995.9292143521045
+        ],
+        "kind": "direction"
+      },
+      {
+        "virtual_time_s": 1492.827,
+        "event": "scan_done",
+        "point": [
+          -574.9999999999998,
+          995.9292143521045
+        ],
+        "index": 3,
+        "channels": 18,
+        "found": [
+          7,
+          17,
+          19,
+          20
+        ]
+      },
+      {
+        "virtual_time_s": 1573.032,
+        "event": "verify_near",
+        "channel": 7,
+        "at": [
+          -868.4,
+          768.8
+        ],
+        "result": "direction"
+      },
+      {
+        "virtual_time_s": 1608.145,
+        "event": "post_clear_check",
+        "channel": 17,
+        "at": [
+          -774.6,
+          693.1
+        ],
+        "result": "no_signal"
+      },
+      {
+        "virtual_time_s": 1608.145,
+        "event": "cleared",
+        "channel": 17,
+        "cost_s": 35.1,
+        "attempts": 1
+      },
+      {
+        "virtual_time_s": 1746.029,
+        "event": "approach",
+        "channel": 7,
+        "at": [
+          -1401.0,
+          899.2
+        ],
+        "worst": 51.5,
+        "result": "direction"
+      },
+      {
+        "virtual_time_s": 1769.308,
+        "event": "approach",
+        "channel": 7,
+        "at": [
+          -1485.8,
+          933.3
+        ],
+        "worst": 31.5,
+        "result": "direction"
+      },
+      {
+        "virtual_time_s": 1782.524,
+        "event": "post_clear_check",
+        "channel": 7,
+        "at": [
+          -1500.2,
+          940.4
+        ],
+        "result": "no_signal"
+      },
+      {
+        "virtual_time_s": 1782.524,
+        "event": "cleared",
+        "channel": 7,
+        "cost_s": 174.4,
+        "attempts": 1
+      },
+      {
+        "virtual_time_s": 2007.221,
+        "event": "discover",
+        "channel": 5,
+        "at": [
+          -1150.0,
+          1.4083438190194562e-13
+        ],
+        "kind": "direction"
+      },
+      {
+        "virtual_time_s": 2019.221,
+        "event": "discover",
+        "channel": 8,
+        "at": [
+          -1150.0,
+          1.4083438190194562e-13
+        ],
+        "kind": "direction"
+      },
+      {
+        "virtual_time_s": 2079.221,
+        "event": "scan_done",
+        "point": [
+          -1150.0,
+          1.4083438190194562e-13
+        ],
+        "index": 4,
+        "channels": 16,
+        "found": [
+          5,
+          8,
+          19,
+          20
+        ]
+      },
+      {
+        "virtual_time_s": 2159.426,
+        "event": "verify_near",
+        "channel": 8,
+        "at": [
+          -1413.1,
+          -261.6
+        ],
+        "result": "direction"
+      },
+      {
+        "virtual_time_s": 2165.426,
+        "event": "opportunistic",
+        "channel": 5,
+        "result": "direction"
+      },
+      {
+        "virtual_time_s": 2227.744,
+        "event": "post_clear_check",
+        "channel": 8,
+        "at": [
+          -1595.0,
+          -80.5
+        ],
+        "result": "no_signal"
+      },
+      {
+        "virtual_time_s": 2227.744,
+        "event": "cleared",
+        "channel": 8,
+        "cost_s": 62.3,
+        "attempts": 1
+      },
+      {
+        "virtual_time_s": 2255.184,
+        "event": "approach",
+        "channel": 5,
+        "at": [
+          -1693.2,
+          -123.4
+        ],
+        "worst": 25.3,
+        "result": "direction"
+      },
+      {
+        "virtual_time_s": 2270.521,
+        "event": "post_clear_check",
+        "channel": 5,
+        "at": [
+          -1719.5,
+          -127.9
+        ],
+        "result": "no_signal"
+      },
+      {
+        "virtual_time_s": 2270.521,
+        "event": "cleared",
+        "channel": 5,
+        "cost_s": 42.8,
+        "attempts": 1
+      },
+      {
+        "virtual_time_s": 2611.814,
+        "event": "discover",
+        "channel": 14,
+        "at": [
+          -575.0000000000005,
+          -995.9292143521043
+        ],
+        "kind": "direction"
+      },
+      {
+        "virtual_time_s": 2635.814,
+        "event": "discover",
+        "channel": 19,
+        "at": [
+          -575.0000000000005,
+          -995.9292143521043
+        ],
+        "kind": "direction"
+      },
+      {
+        "virtual_time_s": 2641.814,
+        "event": "discover",
+        "channel": 20,
+        "at": [
+          -575.0000000000005,
+          -995.9292143521043
+        ],
+        "kind": "direction"
+      },
+      {
+        "virtual_time_s": 2641.814,
+        "event": "scan_done",
+        "point": [
+          -575.0000000000005,
+          -995.9292143521043
+        ],
+        "index": 5,
+        "channels": 14,
+        "found": [
+          14,
+          19,
+          20
+        ]
+      },
+      {
+        "virtual_time_s": 2722.019,
+        "event": "verify_near",
+        "channel": 14,
+        "at": [
+          -238.5,
+          -1152.2
+        ],
+        "result": "direction"
+      },
+      {
+        "virtual_time_s": 2805.517,
+        "event": "approach",
+        "channel": 14,
+        "at": [
+          -215.6,
+          -1544.0
+        ],
+        "worst": 44.8,
+        "result": "direction"
+      },
+      {
+        "virtual_time_s": 2823.07,
+        "event": "approach",
+        "channel": 14,
+        "at": [
+          -211.3,
+          -1606.6
+        ],
+        "worst": 33.1,
+        "result": "direction"
+      },
+      {
+        "virtual_time_s": 2835.822,
+        "event": "post_clear_check",
+        "channel": 14,
+        "at": [
+          -212.3,
+          -1592.9
+        ],
+        "result": "no_signal"
+      },
+      {
+        "virtual_time_s": 2835.822,
+        "event": "cleared",
+        "channel": 14,
+        "cost_s": 113.8,
+        "attempts": 1
+      },
+      {
+        "virtual_time_s": 2945.567,
+        "event": "post_clear_check",
+        "channel": 19,
+        "at": [
+          -94.7,
+          -1113.4
+        ],
+        "result": "no_signal"
+      },
+      {
+        "virtual_time_s": 2945.567,
+        "event": "cleared",
+        "channel": 19,
+        "cost_s": 109.7,
+        "attempts": 1
+      },
+      {
+        "virtual_time_s": 3117.548,
+        "event": "discover",
+        "channel": 10,
+        "at": [
+          575.0000000000001,
+          -995.9292143521044
+        ],
+        "kind": "direction"
+      },
+      {
+        "virtual_time_s": 3153.548,
+        "event": "discover",
+        "channel": 20,
+        "at": [
+          575.0000000000001,
+          -995.9292143521044
+        ],
+        "kind": "direction"
+      },
+      {
+        "virtual_time_s": 3153.548,
+        "event": "scan_done",
+        "point": [
+          575.0000000000001,
+          -995.9292143521044
+        ],
+        "index": 6,
+        "channels": 12,
+        "found": [
+          10,
+          20
+        ]
+      },
+      {
+        "virtual_time_s": 3233.753,
+        "event": "verify_near",
+        "channel": 10,
+        "at": [
+          836.2,
+          -1259.4
+        ],
+        "result": "direction"
+      },
+      {
+        "virtual_time_s": 3286.785,
+        "event": "post_clear_check",
+        "channel": 10,
+        "at": [
+          621.2,
+          -1252.5
+        ],
+        "result": "no_signal"
+      },
+      {
+        "virtual_time_s": 3286.785,
+        "event": "cleared",
+        "channel": 10,
+        "cost_s": 53.0,
+        "attempts": 1
+      },
+      {
+        "virtual_time_s": 3448.375,
+        "event": "post_clear_check",
+        "channel": 20,
+        "at": [
+          400.6,
+          -532.5
+        ],
+        "result": "no_signal"
+      },
+      {
+        "virtual_time_s": 3448.375,
+        "event": "cleared",
+        "channel": 20,
+        "cost_s": 161.6,
+        "attempts": 1
+      },
+      {
+        "virtual_time_s": 3448.375,
+        "event": "exit",
+        "reason": "user_exit"
+      }
+    ]
+  }
+]

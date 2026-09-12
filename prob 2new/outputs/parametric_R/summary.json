@@ -1,0 +1,132 @@
+{
+  "model": "P*(R)=(a*(R), +/-b*(R))",
+  "physical_max_reception_m": 1500.0,
+  "guaranteed_reception_m": 1000.0,
+  "map_boundary_used": false,
+  "interpolation_note": "分段线性插值仅作快速初值；使用前必须重新执行候选区硬约束校验。",
+  "points": [
+    {
+      "R_m": 500.0,
+      "h_R_m": 8.727532464108792,
+      "a_star_m": 297.0,
+      "b_star_m": 180.25818570826812,
+      "distance_m": 347.42195312737,
+      "mean_diameter_m": 20.73086188969308,
+      "cvar_diameter_m": 33.33067813947888,
+      "max_diameter_m": 34.95004837220383,
+      "composite_m": 27.03077001458598,
+      "cost_s": 133.6086577004986,
+      "lambda": 10.93647481058083,
+      "candidate_points": 2178,
+      "min_constraint_slack_m": 1.8025818570826857,
+      "audit_upper_m": 35.07223453666931,
+      "run_output": "C:\\Users\\ASUS\\Desktop\\math\\prob 2new\\outputs\\parametric_R0500p00"
+    },
+    {
+      "R_m": 750.0,
+      "h_R_m": 13.09129869616319,
+      "a_star_m": 445.0,
+      "b_star_m": 267.3829754672644,
+      "distance_m": 519.151861760822,
+      "mean_diameter_m": 31.117349167405422,
+      "cvar_diameter_m": 50.204547559528244,
+      "max_diameter_m": 52.71199972164772,
+      "composite_m": 40.66094836346683,
+      "cost_s": 193.04328607913368,
+      "lambda": 10.35550289852968,
+      "candidate_points": 1856,
+      "min_constraint_slack_m": 0.0,
+      "audit_upper_m": 52.86614730895152,
+      "run_output": "C:\\Users\\ASUS\\Desktop\\math\\prob 2new\\outputs\\parametric_R0750p00"
+    },
+    {
+      "R_m": 1000.0,
+      "h_R_m": 17.455064928217585,
+      "a_star_m": 593.75,
+      "b_star_m": 356.76099254761397,
+      "distance_m": 692.6885795966025,
+      "mean_diameter_m": 41.432359756300144,
+      "cvar_diameter_m": 66.82288216374808,
+      "max_diameter_m": 70.14700582213065,
+      "composite_m": 54.12762096002411,
+      "cost_s": 262.8887744949128,
+      "lambda": 11.024968071637485,
+      "candidate_points": 1244,
+      "min_constraint_slack_m": 0.0,
+      "audit_upper_m": 70.38842652480189,
+      "run_output": "C:\\Users\\ASUS\\Desktop\\math\\prob 2new\\outputs\\parametric_R1000p00"
+    },
+    {
+      "R_m": 1250.0,
+      "h_R_m": 21.818831160271984,
+      "a_star_m": 668.0,
+      "b_star_m": 437.0,
+      "distance_m": 798.2436971251324,
+      "mean_diameter_m": 55.39273732165569,
+      "cvar_diameter_m": 93.92842912744248,
+      "max_diameter_m": 98.25808936430606,
+      "composite_m": 74.66058322454909,
+      "cost_s": 293.89126333184606,
+      "lambda": 8.655338488189274,
+      "candidate_points": 658,
+      "min_constraint_slack_m": 35.625106489589655,
+      "audit_upper_m": 99.12567768659368,
+      "run_output": "C:\\Users\\ASUS\\Desktop\\math\\prob 2new\\outputs\\parametric_R1250p00"
+    },
+    {
+      "R_m": 1500.0,
+      "h_R_m": 26.18259739232638,
+      "a_star_m": 770.0,
+      "b_star_m": 525.0,
+      "distance_m": 931.9468868986044,
+      "mean_diameter_m": 68.25366070973524,
+      "cvar_diameter_m": 117.16743117013698,
+      "max_diameter_m": 122.92436213472612,
+      "composite_m": 92.71054593993611,
+      "cost_s": 334.08560965524515,
+      "lambda": 7.695792901919276,
+      "candidate_points": 220,
+      "min_constraint_slack_m": 60.18915071755453,
+      "audit_upper_m": 123.53603826748115,
+      "run_output": "C:\\Users\\ASUS\\Desktop\\math\\prob 2new\\outputs\\parametric_R1500p00"
+    }
+  ],
+  "segments": [
+    {
+      "R_lo_m": 500.0,
+      "R_hi_m": 750.0,
+      "a_lo_m": 297.0,
+      "b_lo_m": 180.25818570826812,
+      "da_dR": 0.592,
+      "db_dR": 0.34849915903598505,
+      "formula": "a=a_lo+da_dR*(R-R_lo); b=b_lo+db_dR*(R-R_lo)"
+    },
+    {
+      "R_lo_m": 750.0,
+      "R_hi_m": 1000.0,
+      "a_lo_m": 445.0,
+      "b_lo_m": 267.3829754672644,
+      "da_dR": 0.595,
+      "db_dR": 0.35751206832139837,
+      "formula": "a=a_lo+da_dR*(R-R_lo); b=b_lo+db_dR*(R-R_lo)"
+    },
+    {
+      "R_lo_m": 1000.0,
+      "R_hi_m": 1250.0,
+      "a_lo_m": 593.75,
+      "b_lo_m": 356.76099254761397,
+      "da_dR": 0.297,
+      "db_dR": 0.32095602980954413,
+      "formula": "a=a_lo+da_dR*(R-R_lo); b=b_lo+db_dR*(R-R_lo)"
+    },
+    {
+      "R_lo_m": 1250.0,
+      "R_hi_m": 1500.0,
+      "a_lo_m": 668.0,
+      "b_lo_m": 437.0,
+      "da_dR": 0.408,
+      "db_dR": 0.352,
+      "formula": "a=a_lo+da_dR*(R-R_lo); b=b_lo+db_dR*(R-R_lo)"
+    }
+  ]
+}

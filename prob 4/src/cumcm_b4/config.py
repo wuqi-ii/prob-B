@@ -1,0 +1,149 @@
+"""问题四的全局参数与策略参数。
+
+与问题三的区别：目标区域内既有全向干扰源又有定向干扰源。定向干扰源只在
+「定向方向两侧各 90°」的楔形覆盖范围内辐射信号，楔外不可测。因此：
+
+1. 物理常量新增定向覆盖半角 DIRECTIONAL_HALF_ANGLE_DEG = 90；
+2. 覆盖普查从「七点」升级为「包围网」（中心 + 内环 + 外环），外环布在目标区域
+   之外，从而保证任意位置、任意朝向的定向源都至少被一个扫描点测到；
+3. 定位阶段对「只有一次示向度」的频道不再去问题 2 的垂直候选点，而是沿示向度
+   **朝源推进**（保持在覆盖楔内），并在信号消失时改用「光学环形清除」兜底
+   （/clear 只与距离有关、与覆盖角无关）。
+
+所有物理常量直接取自赛题附录，策略参数集中在 CONFIG 中并可由 configs/*.json 覆盖。
+单位：米 / 秒 / 度。
+"""
+
+from __future__ import annotations
+
+import json
+import math
+from dataclasses import dataclass, replace
+from pathlib import Path
+from typing import Any, Dict
+
+# 注意：不在此处顶层导入 coverage（coverage 需要这里的物理常量，会形成循环导入）。
+# validate() 内部按需惰性导入 coverage_worst_required_radius。
+
+
+# --------------------------------------------------------------------------
+# 赛题给定的物理常量（附录 1、2）——不可调整
+# --------------------------------------------------------------------------
+ARENA_RADIUS_M = 1800.0          # 目标区域半径
+CHANNEL_COUNT = 20               # 频道编号 1..20
+SOURCE_COUNT_MIN = 10            # 干扰源总数下界
+SOURCE_COUNT_MAX = 16            # 干扰源总数上界
+RECEIVER_MIN_M = 1000.0          # 有效接收半径下界（最坏情况）
+RECEIVER_MAX_M = 1500.0          # 有效接收半径上界
+DIRECTIONAL_HALF_ANGLE_DEG = 90.0  # 定向源覆盖半角（定向方向两侧各 90°）
+BEARING_ERROR_DEG = 1.0          # 示向度误差半宽
+DOG_SPEED_MPS = 5.0              # 移动速度
+SWITCH_COST_S = 1.0              # 任意两频道之间的切换耗时
+MEASURE_COST_S = 5.0             # 单次检测耗时
+OPTICAL_COST_S = 3.0             # 光学精确定位耗时
+LASER_COST_S = 2.0               # 激光清除耗时
+CLEAR_RADIUS_M = 20.0            # 光学可精确定位的距离
+NEAR_RADIUS_M = 5.0              # 信号过强、无法获得示向度的距离（且在覆盖楔内）
+VIRTUAL_TIME_LIMIT_S = 100 * 3600.0   # 虚拟时间上限
+PROGRAM_TIME_LIMIT_S = 20 * 60.0      # 程序运行时间上限
+TEST_WINDOW_S = 25 * 60.0             # 测试窗口
+
+# 成功率/耗时换算：清除命中耗时 3+2=5，未命中 3
+CLEAR_HIT_COST_S = OPTICAL_COST_S + LASER_COST_S
+CLEAR_MISS_COST_S = OPTICAL_COST_S
+
+
+@dataclass(frozen=True)
+class StrategyConfig:
+    """策略可调参数。默认值对应文档中的基准配置（27 点包围网）。"""
+
+    # ---- 包围网覆盖普查（问题 4 的核心改动）----
+    # 中心点恒为原点（机器狗出发点）。内环 + 外环共同构成"包围网"：
+    # 对任意位置、任意朝向的源，都至少存在一个扫描点既在其 180° 覆盖楔内、
+    # 又在 1000 m 有效接收半径内。外环半径必须大于目标区域半径 1800，
+    # 否则边界处、楔朝外的定向源会漏检（内接多边形盖不住圆盘边缘）。
+    scan_inner_radius_m: float = 980.0    # 内环到原点距离
+    scan_inner_count: int = 8             # 内环点数
+    scan_outer_radius_m: float = 1840.0   # 外环到原点距离（> 1800，目标区域外）
+    scan_outer_count: int = 18            # 外环点数
+    disk_sides: int = 64                  # 圆域外接多边形的边数
+
+    # ---- 同向推进点（问题 4 取代问题 2 的垂直第二检测点）----
+    # 只有一次示向度的频道：沿示向度方向朝源推进 first_approach_step_m 米再测。
+    # 推进方向与"检测点指向源"一致，因此始终保持在定向源的覆盖楔内。
+    first_approach_step_m: float = 300.0  # 单示向度频道的首次推进步长
+
+    # ---- 逼近与清除 ----
+    approach_step_ratio: float = 0.85     # 每次逼近前进到剩余估计距离的比例
+    approach_min_step_m: float = 25.0     # 最小逼近步长，防止原地抖动
+    approach_max_step_m: float = 400.0    # 逼近步长上限，防止越过源（定向源楔外不可测）
+    approach_max_iterations: int = 60     # 单个目标的逼近迭代上限
+    clear_safety_margin_m: float = 2.0    # 判定「质心可直接清除」的余量
+
+    # ---- 定向源的光学环形兜底（/clear 只看距离、不看覆盖角）----
+    ring_clear_radius_m: float = 15.0     # 环形清除的半径
+    ring_clear_count: int = 6             # 环形清除的点数（+ 中心共 7 个）
+    ring_clear_enabled: bool = True       # 是否启用环形兜底清除
+
+    # ---- 清除后的闭环确认（"确保全部清除"的可验证性）----
+    post_clear_verify: bool = True        # 清除成功后是否就地复测确认无信号
+    max_clear_attempts_per_channel: int = 5  # 单频道清除尝试上限
+
+    # ---- 决策 ----
+    opportunistic_scan: bool = True        # 是否启用顺路/顺频道捎带检测
+    route_replan_every_step: bool = True   # 每完成一个任务点后是否重算路径
+    scan_all_channels_at_scan_points: bool = True  # 在必访扫描点是否扫全部未确认频道
+    task_bias_clear_m: float = 0.0         # 清除任务的等效距离优惠（越大越优先）
+    task_bias_verify_m: float = 0.0        # 验证任务的等效距离优惠
+    opportunistic_radius_m: float = 600.0  # 顺捎检测的作用半径
+    opportunistic_max_per_stop: int = 3    # 单次停留最多顺捎几个频道
+    opportunistic_min_diameter_m: float = 40.0  # 区域已足够小就不必顺捎
+
+    # ---- 运行 ----
+    base_url: str = "http://127.0.0.1:2026"
+    robot_id: str = "202623001124"
+    request_timeout_s: float = 10.0
+    max_requests: int = 8000              # 请求数硬上限（包围网点数多，放宽）
+    virtual_time_budget_s: float = float("inf")  # 虚拟时间软预算
+
+    def validate(self) -> None:
+        """参数可行性检查：包围网必须覆盖，几何参数必须在合理区间。"""
+        if not 0 < self.scan_inner_radius_m <= ARENA_RADIUS_M:
+            raise ValueError("scan_inner_radius_m 必须位于 (0, 1800]")
+        if not ARENA_RADIUS_M < self.scan_outer_radius_m <= 2000.0:
+            raise ValueError("scan_outer_radius_m 必须位于 (1800, 2000]（目标区域外）")
+        if self.scan_inner_count < 3:
+            raise ValueError("scan_inner_count 至少为 3")
+        if self.scan_outer_count < 6:
+            raise ValueError("scan_outer_count 至少为 6")
+        from .coverage import coverage_worst_required_radius  # 惰性导入，避免循环依赖
+        worst = coverage_worst_required_radius(self, step_m=40.0, ang_step_deg=3.0)
+        if worst > RECEIVER_MIN_M + 1e-9:
+            raise ValueError(
+                "包围网不能按最坏接收半径覆盖目标区域："
+                f"需要接收半径 {worst:.3f} m > {RECEIVER_MIN_M:.3f} m"
+            )
+        if not 0 < self.approach_step_ratio < 1:
+            raise ValueError("approach_step_ratio 必须位于 (0, 1)")
+        if not self.approach_min_step_m <= self.approach_max_step_m:
+            raise ValueError("approach_min_step_m 必须 <= approach_max_step_m")
+        if not 0 <= self.clear_safety_margin_m < CLEAR_RADIUS_M:
+            raise ValueError("clear_safety_margin_m 必须在 [0, 20)")
+        if not 0 < self.first_approach_step_m <= RECEIVER_MAX_M:
+            raise ValueError("first_approach_step_m 必须位于 (0, 1500]")
+        if self.ring_clear_enabled and self.ring_clear_count < 1:
+            raise ValueError("ring_clear_count 至少为 1")
+
+    # ---- 序列化 ----
+    def to_dict(self) -> Dict[str, Any]:
+        return {k: getattr(self, k) for k in self.__dataclass_fields__}  # type: ignore[attr-defined]
+
+    @classmethod
+    def from_file(cls, path: str | Path) -> "StrategyConfig":
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        data = {k: v for k, v in data.items() if not k.startswith("_")}
+        known = set(cls().__dataclass_fields__)  # type: ignore[attr-defined]
+        unknown = set(data) - known
+        if unknown:
+            raise ValueError(f"配置含未知字段: {sorted(unknown)}")
+        return replace(cls(), **data)

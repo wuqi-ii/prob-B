@@ -1,0 +1,20 @@
+{
+  "cases": 200,
+  "total_sources": 2608,
+  "means": {
+    "current_time_s": 3486.411750031193,
+    "move_s": 2580.946750031193,
+    "measure_s": 717.275,
+    "switch_s": 122.99,
+    "clear_s": 65.2,
+    "measure_count": 143.455,
+    "exact_centre_path_m": 8887.987801163727,
+    "oracle_lower_s": 1742.4775602327454,
+    "oracle_upper_s": 1842.7975602327454
+  },
+  "max_possible_saving_fraction": 0.5002089009661135,
+  "comparison": "Same 200 saved cases and effective config; current times reproduced.",
+  "caveat": "Oracle has full coordinates and channel identities; search cost omitted. Bounds enclose the full-information optimum, not the unknown-target optimum.",
+  "proof": "L_centres - (2n-1)*20 <= L_discs <= L_centres; time = length/5 + 5n; start at origin, endpoint free.",
+  "verification": "Subset DP checked against exhaustive permutations for n=1..7; every recovered oracle route replayed successfully in OfflineSimulator."
+}

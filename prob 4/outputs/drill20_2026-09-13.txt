@@ -1,0 +1,33 @@
+drill20 真机演练 — MEC + 第六/七轮全默认优化首个真机样本
+================================================================
+
+运行时间：2026-09-13
+配置：23 点包围网（中心 + 内环 8×980 + 外环 14×1848）
+      use_mec_clear=True  certified_scan_skip=True  scan_current_channel_first=True
+      bisect_fraction=0.85  post_clear_verify=False  task_bias_clear_m=-100
+      early_stop_at_max_sources=True  task_bias_verify_m=-700  bisect_tolerance_m=12
+
+结果：
+- 干扰源总数（真值）：11（其中定向源 9，占比 82%）
+- 清除：11/11 = 100%，all_done，零漏检
+- 总时间：6989.5 s（116.5 min）
+- 平均每源：635.4 s
+- HTTP 请求：376
+- 清除尝试/命中：25/11（miss 14 次）
+- 剪枝跳过：28 次，14 个扫描点
+- 访问扫描点：23/23
+
+每源耗时（降序）：
+  ch6=638  ch12=242  ch2=154  ch11=151  ch19=139  ch13=104
+  ch8=97   ch15=95   ch3=88   ch16=61   ch20=53
+
+关键结论：
+1. 零漏检：MEC + bisect_fraction=0.85 + post_clear_verify=False + task_bias_clear=-100
+   组合在真机首次验证通过（11/11 全清）。
+2. 定向难源局：9/11 定向（82%），ch6 单源 638s 为最难源（定向源二分收敛慢）。
+   时间 6989.5s 落在 drill19（100% 定向，8000s）与 drill18（50% 定向，6825s）之间，
+   与「定向占比→时间」的既有正相关一致。
+3. early_stop 未触发（11 源 < 16 源上限），该项仍需 16 源局验证。
+
+真值文件：practice-p4-3111841090519713369-5QZ3-NXFN-SCBX-6WT9.result.json
+日志目录：logs/runs/drill20/

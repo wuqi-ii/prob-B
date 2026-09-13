@@ -91,7 +91,14 @@ class StrategyConfig:
     # 故默认 False，仅作历史记录。
     approach_along_bearing: bool = False
     approach_max_iterations: int = 60     # 单个目标的逼近迭代上限
-    clear_safety_margin_m: float = 2.0    # 判定「质心可直接清除」的余量
+    # 判定「可直接清除」的余量：判据为 mec_radius <= CLEAR_RADIUS - margin。
+    # margin>0 保守（更早转入逼近）；margin<0 激进（mec_radius 略超 CLEAR_RADIUS
+    # 也直接 clear，赌源在 MEC 圆心附近而非最坏顶点）。drill23 ch5 揭示：定位准
+    # （MEC 圆心距源 11.2m）却因 mec_radius 19.2m>18m 被送去逼近+二分，绕 ~400s。
+    # 大样本 800 例精细扫描（400 混合 + 400 全定向）：margin 越负越优且 miss 反降，
+    # margin=-15 为安全甜点（-20 全定向 149/150 开始漏检，-15 距边界留 5m 余量），
+    # 混合 -0.48%、全定向 -0.71%，零漏检。
+    clear_safety_margin_m: float = -15.0
     # True 时清除站位/判据改用可行域顶点的最小覆盖圆圆心与半径（minimax 最优），
     # 替代质心 + 质心到最远顶点距离。700 例配对验证零漏检、−0.62%~−0.64% 显著收益，
     # 故设为默认。对非中心对称的可行域把最坏距离压小约 10%，更早满足一次命中判据。
@@ -105,6 +112,21 @@ class StrategyConfig:
     # 实测（150 例配对）省 −0.83% 但漏检 31/150（miss 8.61→17.63）：二分的
     # "边测边找源"价值不可省。故默认 False，仅作历史记录。
     skip_bisect_on_overshoot: bool = False
+    # True 时越过源后的二分改为沿「最后一条示向线（bearing）」做射线二分，而非
+    # 沿 lo(有信号)→hi(无信号) 的空间连线二分。定向源只在 180° 楔内发信号，而
+    # lo→hi 连线方向≈朝可行域质心 anchor 的方向，可能擦着楔边缘走、二分点大量
+    # 落在楔外白测（drill22 ch6 前 6 次二分全在源背后无信号区）。bearing 直接
+    # 指向源（源位于楔中心线），沿它走信号严格单调，二分始终有效。默认 False，
+    # 待 A/B 验证后决定是否开。
+    ray_bisect: bool = False
+    # 越界后二分前，先算「lo→hi 方向 vs 最后 bearing」夹角；夹角 >= 阈值说明这条
+    # 线段不指向源（横向擦出楔边缘），二分测量点必全落无信号区，直接跳过二分交给
+    # 外层 ring_clear(+relocate) 兜底。诊断：夹角>=15° 的越界二分成功率 0%；drill24
+    # ch17 更暴露「8.5° 的横向出楔也二分失败（收敛到距源 80m）」。大样本 800 例
+    # 精细扫描：gate 越小越优（g5 > g10 > g15），配合 margin=-15 后 miss 大幅减少。
+    # 故阈值降为 5°（拦截近全部横向越界，bisect 仍保留 ~3.5 次/局的径向二分）。
+    angle_gate_bisect: bool = True
+    angle_gate_threshold_deg: float = 5.0
     # 二分的「有信号/无信号」括号长度收敛到该阈值即停，取中点清除。
     # 因真源必落在括号内、且 /clear 半径 20 m，阈值放大到 2*(20-横向误差) 仍安全，
     # 但放大能省下最后一次往返。默认 12.0 与历史行为一致。
@@ -113,6 +135,12 @@ class StrategyConfig:
     ring_clear_radius_m: float = 15.0     # 环形清除的半径
     ring_clear_count: int = 6             # 环形清除的点数（+ 中心共 7 个）
     ring_clear_enabled: bool = True       # 是否启用环形兜底清除
+    # ring_clear 全 miss 后，用「全部观测」重算 MEC 圆心：若与 ring 中心明显
+    # 偏离（> ring_clear_radius_m），说明二分把定位带偏了（drill24 ch17：二分
+    # 横向出楔收敛到距真源 80m 处，ring 7 次全 miss），此时改打重算的 MEC 圆心
+    # 直接 clear。只在失败后触发，不影响成功路径。默认 True（待 A/B 确认）。
+    ring_clear_relocate: bool = True
+    ring_clear_relocate_threshold_m: float = 15.0  # 重定位触发的中心偏离阈值
 
     # ---- 清除后的闭环确认（"确保全部清除"的可验证性）----
     # /clear 的 success 已是权威成功结果；成功后原地复测只会固定增加5~6秒/源，
@@ -187,8 +215,8 @@ class StrategyConfig:
             raise ValueError("approach_step_ratio 必须位于 (0, 1)")
         if not self.approach_min_step_m <= self.approach_max_step_m:
             raise ValueError("approach_min_step_m 必须 <= approach_max_step_m")
-        if not 0 <= self.clear_safety_margin_m < CLEAR_RADIUS_M:
-            raise ValueError("clear_safety_margin_m 必须在 [0, 20)")
+        if not -CLEAR_RADIUS_M < self.clear_safety_margin_m < CLEAR_RADIUS_M:
+            raise ValueError("clear_safety_margin_m 必须在 (-20, 20)")
         if not 0 < self.first_approach_step_m <= RECEIVER_MAX_M:
             raise ValueError("first_approach_step_m 必须位于 (0, 1500]")
         if not 0 < self.bisect_fraction < 1:

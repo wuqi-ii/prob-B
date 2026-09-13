@@ -407,6 +407,29 @@ class DogStrategy:
                 return True
         return False
 
+    def _ring_clear_or_relocate(self, center: Point, ch: int) -> bool:
+        """环形兜底失败后的重定位补救。
+
+        二分可能「横向擦出楔」收敛到距真源很远的位置（drill24 ch17：收敛点距源
+        80m，ring 7 次全 miss，而全部观测的 MEC 圆心距源仅 0.1m）。此时 ring_clear
+        全 miss 是「定位被带偏」的信号：用全部观测重算 MEC 圆心，若与 ring 中心
+        明显偏离（> 阈值），说明带偏了，改打重算圆心直接 clear，省掉冻结 + 终局
+        重试的往返。
+        """
+        if self._ring_clear(center, ch):
+            return True
+        if not self.cfg.ring_clear_relocate:
+            return False
+        anchor, _ = self._clear_anchor(ch)
+        if anchor is None:
+            return False
+        if math.dist(anchor, center) <= self.cfg.ring_clear_relocate_threshold_m:
+            return False
+        self._log("ring_relocate", channel=ch,
+                  at=[round(anchor[0], 1), round(anchor[1], 1)],
+                  from_=[round(center[0], 1), round(center[1], 1)])
+        return self._try_clear(anchor, ch)
+
     def _approach_and_clear(self, ch: int) -> bool:
         """逼近循环（>=2 次示向度）：补观测 -> 质心 -> 再逼近，直到光学能命中。"""
         cfg = self.cfg
@@ -430,7 +453,7 @@ class DogStrategy:
                     return self._try_clear(anchor, ch)
                 if kind == "direction":
                     continue
-                return self._ring_clear(anchor, ch)
+                return self._ring_clear_or_relocate(anchor, ch)
 
             cur = self._pos()
             d = math.dist(cur, anchor)
@@ -457,7 +480,7 @@ class DogStrategy:
                     return self._ring_clear(target, ch)
                 if self._resolve_overshoot(ch, lo, target):
                     return True
-                return self._ring_clear(anchor, ch)
+                return self._ring_clear_or_relocate(anchor, ch)
         return False
 
     def _resolve_overshoot(self, ch: int, lo_pt: Point, hi_pt: Point) -> bool:
@@ -467,6 +490,34 @@ class DogStrategy:
         （走出覆盖楔），因此可按 measure 结果二分夹逼。±1° 误差在短距离内造成的
         横向偏移远小于 20 m 清除半径，收敛点附近清除即可命中。
         """
+        if self.cfg.ray_bisect:
+            return self._ray_bisect(ch, lo_pt, hi_pt)
+        if self.cfg.angle_gate_bisect and self._overshoot_is_lateral(ch, lo_pt, hi_pt):
+            return False  # 横向出楔，二分必白费，交外层 ring_clear(anchor) 兜底
+        return self._line_bisect(ch, lo_pt, hi_pt)
+
+    def _overshoot_is_lateral(self, ch: int, lo_pt: Point, hi_pt: Point) -> bool:
+        """判断越界是否为「横向擦出楔」——lo→hi 线段不指向源，二分必白费。
+
+        用「lo→hi 方向 vs 最后 bearing（从 lo 指向源）」的夹角判断：夹角大说明
+        approach 朝 anchor 走偏了、线段擦着定向源楔边缘，测量点全落无信号区。
+        诊断（120 例）：夹角 >=15° 的越界二分成功率 0%（0/42）。
+        """
+        bearing = None
+        for pt, b in reversed(self.book[ch].observations):
+            if math.dist(pt, lo_pt) < 1e-6:
+                bearing = b
+                break
+        if bearing is None:
+            return False
+        lo_hi_deg = math.degrees(math.atan2(hi_pt[1] - lo_pt[1],
+                                            hi_pt[0] - lo_pt[0])) % 360.0
+        d = (lo_hi_deg - bearing) % 360.0
+        ang = min(d, 360.0 - d)
+        return ang >= self.cfg.angle_gate_threshold_deg
+
+    def _line_bisect(self, ch: int, lo_pt: Point, hi_pt: Point) -> bool:
+        """沿 lo(有信号)→hi(无信号) 空间连线二分（历史默认行为）。"""
         lo = lo_pt
         hi = hi_pt
         for _ in range(20):
@@ -488,7 +539,50 @@ class DogStrategy:
             else:
                 hi = mid
         center = ((lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0)
-        return self._ring_clear(center, ch)
+        return self._ring_clear_or_relocate(center, ch)
+
+    def _ray_bisect(self, ch: int, lo_pt: Point, hi_pt: Point) -> bool:
+        """沿最后一条示向线（bearing）射线二分：bearing 直接指向源（源位于楔中心
+        线），沿它走信号严格单调（楔内→越过源→楔外），二分点始终落在楔中心线上，
+        避免 lo→hi 连线擦着定向源楔边缘走、二分点大量落在无信号区白测。
+        """
+        cfg = self.cfg
+        bearing = None
+        for pt, b in reversed(self.book[ch].observations):
+            if math.dist(pt, lo_pt) < 1e-6:
+                bearing = b
+                break
+        if bearing is None:
+            return self._line_bisect(ch, lo_pt, hi_pt)
+
+        rad = math.radians(bearing)
+        dirx, diry = math.cos(rad), math.sin(rad)
+        lo_t = 0.0
+        # 初始上界取逼近步长（|lo_pt-hi_pt|）；若源更远（逼近横穿楔、源在侧边），
+        # 二分点贴到上界仍全 direction 时扩张一次（仅一次，避免正常收敛被误扩）。
+        hi_t = max(math.dist(lo_pt, hi_pt), cfg.bisect_tolerance_m * 2.0)
+        expanded = False
+        for _ in range(24):
+            if hi_t - lo_t <= cfg.bisect_tolerance_m:
+                break
+            t = lo_t + cfg.bisect_fraction * (hi_t - lo_t)
+            mid = (lo_pt[0] + t * dirx, lo_pt[1] + t * diry)
+            payload = self.backend.measure(mid[0], mid[1], ch)
+            kind = self.book.apply_measure(ch, mid, payload)
+            self._log("bisect", channel=ch,
+                      at=[round(mid[0], 1), round(mid[1], 1)], result=kind)
+            if kind == "near":
+                return self._try_clear(mid, ch)
+            if kind == "direction":
+                lo_t = t
+                if not expanded and hi_t - t <= cfg.bisect_tolerance_m:
+                    hi_t *= 2.0
+                    expanded = True
+            else:
+                hi_t = t
+        t = (lo_t + hi_t) / 2.0
+        center = (lo_pt[0] + t * dirx, lo_pt[1] + t * diry)
+        return self._ring_clear_or_relocate(center, ch)
 
     # ---------------- 机会性复测 ----------------
     def _opportunistic_pass(self, point: Point, exclude: Optional[int] = None) -> None:

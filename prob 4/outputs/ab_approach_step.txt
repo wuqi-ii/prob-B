@@ -1,0 +1,14 @@
+cases=100 start_seed=14000 dir_prob=0.5
+base            : mean  6656.9s | perfect 100/100 | miss  8.59 | bisect 12.38 | max_src  404.8s | req  320.4
+ratio0.65       : mean  6687.7s | perfect 100/100 | miss  9.30 | bisect 13.18 | max_src  406.4s | req  324.8
+ratio0.75       : mean  6678.8s | perfect 100/100 | miss  9.20 | bisect 13.02 | max_src  406.3s | req  323.3
+max200          : mean  6685.9s | perfect 100/100 | miss  9.18 | bisect 13.34 | max_src  407.7s | req  324.2
+max300          : mean  6664.7s | perfect 100/100 | miss  8.64 | bisect 12.78 | max_src  402.6s | req  321.4
+ratio0.7_max250 : mean  6691.0s | perfect 100/100 | miss  9.45 | bisect 13.65 | max_src  402.5s | req  326.1
+
+配对差 vs base:
+ratio0.65       : time    +30.8s (+0.46%, se 9.3) | max_src    +1.6s | failed 0
+ratio0.75       : time    +21.9s (+0.33%, se 8.4) | max_src    +1.5s | failed 0
+max200          : time    +29.0s (+0.44%, se 10.1) | max_src    +2.8s | failed 0
+max300          : time     +7.8s (+0.12%, se 9.8) | max_src    -2.2s | failed 0
+ratio0.7_max250 : time    +34.1s (+0.51%, se 15.5) | max_src    -2.4s | failed 0

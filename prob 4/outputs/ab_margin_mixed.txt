@@ -1,0 +1,20 @@
+cases=200 start_seed=14000 dir_prob=0.5
+margin2_gate15  : mean   6637.5s | per-src min/mean/max  315.1/ 528.9/ 748.2s | max_src(mean)  373.9s | perfect  200/200 | miss  6.75 | bisect 10.12
+margin0         : mean   6587.1s | per-src min/mean/max  314.0/ 524.7/ 732.2s | max_src(mean)  366.7s | perfect  200/200 | miss  5.78 | bisect  8.64
+margin-5        : mean   6506.4s | per-src min/mean/max  304.3/ 518.6/ 730.9s | max_src(mean)  365.2s | perfect  200/200 | miss  4.38 | bisect  6.30
+margin-10       : mean   6461.0s | per-src min/mean/max  300.3/ 515.2/ 730.5s | max_src(mean)  360.0s | perfect  200/200 | miss  3.56 | bisect  4.98
+margin-15       : mean   6436.1s | per-src min/mean/max  299.1/ 513.3/ 723.9s | max_src(mean)  356.5s | perfect  200/200 | miss  3.67 | bisect  4.38
+margin-20       : mean   6415.1s | per-src min/mean/max  298.1/ 511.6/ 723.1s | max_src(mean)  351.5s | perfect  200/200 | miss  3.75 | bisect  3.75
+gate10          : mean   6621.2s | per-src min/mean/max  315.1/ 527.6/ 748.2s | max_src(mean)  372.0s | perfect  200/200 | miss  6.16 | bisect  9.38
+gate5           : mean   6576.4s | per-src min/mean/max  315.1/ 524.1/ 748.2s | max_src(mean)  357.3s | perfect  200/200 | miss  4.67 | bisect  7.32
+margin-10_gate5 : mean   6431.4s | per-src min/mean/max  300.3/ 512.9/ 730.5s | max_src(mean)  350.5s | perfect  200/200 | miss  2.79 | bisect  3.96
+
+--- 配对差异（vs 当前默认 margin2_gate15）---
+margin0         : paired    -50.3s (-0.76%, se 6.2) | miss -0.97 | bisect -1.5
+margin-5        : paired   -131.1s (-1.98%, se 10.7) | miss -2.37 | bisect -3.8
+margin-10       : paired   -176.5s (-2.66%, se 12.7) | miss -3.19 | bisect -5.1
+margin-15       : paired   -201.4s (-3.03%, se 13.4) | miss -3.08 | bisect -5.7
+margin-20       : paired   -222.4s (-3.35%, se 14.4) | miss -3.00 | bisect -6.4
+gate10          : paired    -16.3s (-0.25%, se 4.2) | miss -0.59 | bisect -0.7
+gate5           : paired    -61.1s (-0.92%, se 9.2) | miss -2.08 | bisect -2.8
+margin-10_gate5 : paired   -206.0s (-3.10%, se 13.6) | miss -3.96 | bisect -6.2
